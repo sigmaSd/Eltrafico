@@ -1,30 +1,21 @@
 // "TC store rates as a 32-bit unsigned integer in bps internally, so we can specify a max rate of 4294967295 bps"
 // (source: `$ man tc`)
-const MAX_RATE: usize = 4_294_967_295;
-//const IFB_REGEX: &'static str = r'ifb\d+';
-//const FILTER_ID_REGEX: &'static str = r'filter .*? fh ([a-z0-9]+::[a-z0-9]+?)(?:\s|$)'
-//const QDISC_ID_REGEX = r'qdisc .+? ([a-z0-9]+?):'
-//const CLASS_ID_REGEX = r'class .+? (?P<qdisc_id>[a-z0-9]+?):(?P<class_id>[a-z0-9]+)'
+const MAX_RATE: &str = "4294967295";
 
 // This ID seems to be fixed for the ingress QDisc
 const INGRESS_QDISC_PARENT_ID: &str = "ffff:fff1";
 
-#[test]
-fn t() {
-    // sudo
-
-    dbg!(tc_setup("wlp3s0", Some(200), Some(200)));
-}
-
 use std::process::*;
 pub type CatchAll<T> = Result<T, Box<dyn std::error::Error>>;
+type Gress = (&'static str, usize, usize);
+
 pub fn tc_setup(
     interface: &'static str,
-    download_rate: Option<usize>,
-    upload_rate: Option<usize>,
-) -> CatchAll<((&'static str, usize, usize), (&'static str, usize, usize))> {
-    let download_rate = download_rate.unwrap_or(MAX_RATE);
-    let upload_rate = upload_rate.unwrap_or(MAX_RATE);
+    download_rate: Option<String>,
+    upload_rate: Option<String>,
+) -> CatchAll<(Gress, Gress)> {
+    let download_rate = download_rate.unwrap_or_else(|| MAX_RATE.to_string());
+    let upload_rate = upload_rate.unwrap_or_else(|| MAX_RATE.to_string());
 
     // set up IFB device
     run(format!(
@@ -91,17 +82,13 @@ pub fn tc_setup(
     ))?;
 
     Ok((("ifb0", 1, 1), ("wlp3s0", 1, 1)))
-    // Ok((
-    //     (ifb_device, ifb_device_qdisc_id, ifb_device_root_class_id),
-    //     (interface, interface_qdisc_id, interface_root_class_id),
-    // ))
 }
 
 pub fn tc_add_htb_class(
     interface: &'static str,
     parent_qdisc_id: usize,
     parent_class_id: usize,
-    rate: usize,
+    rate: String,
 ) -> CatchAll<usize> {
     let class_id = get_free_class_id(interface, parent_qdisc_id)?;
     // rate of 1byte/s is the lowest we can specify. All classes added this way should only be allowed to borrow from the
@@ -139,17 +126,6 @@ fn get_free_class_id(interface: &'static str, qdisc_id: usize) -> CatchAll<usize
         }
     }
     Ok(ids.into_iter().max().unwrap_or(0) + 1)
-    /*
-    process = run(f'tc class show dev {interface}', stdout=subprocess.PIPE, universal_newlines=True)
-
-        ids = set()
-        for line in process.stdout.splitlines():
-            match = re.match(CLASS_ID_REGEX, line).groupdict()
-            if int(match['qdisc_id']) == qdisc_id:
-                ids.add(int(match['class_id']))
-
-        return _find_free_id(ids)
-    */
 }
 
 fn acquire_ifb_device() -> CatchAll<&'static str> {
@@ -169,15 +145,15 @@ fn activate_interface(name: &'static str) -> CatchAll<()> {
 }
 
 fn run(v: String) -> CatchAll<Output> {
-    //dbg!(&v);
     let v = v.split_whitespace();
-    // let v0 = match v.next() {
-    //     Some(v) => v,
-    //     None => panic!("error while running cmd: {:?}", v),
-    // };
     Ok(Command::new("sudo")
         .args(v.collect::<Vec<&str>>())
         .output()?)
+}
+
+#[test]
+fn clean() {
+    clean_up("ifb0", "wlp3s0");
 }
 
 pub fn clean_up(ingress_interface: &'static str, egress_interface: &'static str) -> CatchAll<()> {
@@ -200,15 +176,29 @@ pub fn add_egress_filter(
     egress_interface: &str,
     egress_class_id: usize,
     egress_qdisc_id: usize,
-) -> CatchAll<()> {
-    let _filter_id = tc_add_u32_filter(
+) -> CatchAll<String> {
+    let filter_id = tc_add_u32_filter(
         egress_interface,
         &format!("match ip sport {} 0xffff", port),
         egress_qdisc_id,
         egress_class_id,
     )?;
-    //port_to_filter_id['egress'][port] = filter_id
-    Ok(())
+    Ok(filter_id)
+}
+
+pub fn add_ingress_filter(
+    port: &str,
+    ingress_interface: &str,
+    ingress_class_id: usize,
+    ingress_qdisc_id: usize,
+) -> CatchAll<String> {
+    let filter_id = tc_add_u32_filter(
+        ingress_interface,
+        &format!("match ip dport {} 0xffff", port),
+        ingress_qdisc_id,
+        ingress_class_id,
+    )?;
+    Ok(filter_id)
 }
 
 fn tc_add_u32_filter(
@@ -225,12 +215,13 @@ fn tc_add_u32_filter(
     let after = get_filter_ids(interface)?;
 
     let mut difference = after.difference(&before);
-    // if len(difference) > 1:
-    //     logger.warning('Parsed ambiguous filter handle: {}', difference)
+
     if let Some(diff) = difference.next() {
         Ok(diff.to_string())
     } else {
-        panic!("tc_add_u32_filter paniced")
+        // ctrlc was maybe used
+        std::process::exit(0);
+        //panic!("tc_add_u32_filter paniced")
     }
 }
 
@@ -249,4 +240,12 @@ fn get_filter_ids(interface: &str) -> CatchAll<HashSet<String>> {
         }
     }
     Ok(ids)
+}
+
+pub fn tc_remove_u32_filter(interface: &str, filter_id: &str, parent_qdisc_id: usize) {
+    run(format!(
+        "tc filter del dev {} parent {}: handle {} prio 1 protocol ip u32",
+        interface, parent_qdisc_id, filter_id
+    ))
+    .unwrap();
 }

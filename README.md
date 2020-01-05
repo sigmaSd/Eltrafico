@@ -3,7 +3,11 @@ NetLimiter-like traffic shaping for Linux
 
 This is a port of https://github.com/cryzed/TrafficToll to rust.
 
-It should be now about 95% ported (missing yaml parsing which I'm not fun of, I probably will just skip to gui).
+It should be now about 95% ported 
+
+Currently Missing: 
+ - Logging
+ - Parsing Yaml 
 
  # Usage
  `eltrafico device config Optional<delay>`

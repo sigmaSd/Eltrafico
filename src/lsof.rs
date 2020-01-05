@@ -1,4 +1,4 @@
-use crate::tc::CatchAll;
+use crate::CatchAll;
 use std::collections::HashMap;
 use std::process::*;
 
@@ -6,6 +6,7 @@ use std::process::*;
 fn tlsof() {
     dbg!(lsof());
 }
+
 pub fn lsof() -> CatchAll<HashMap<String, Vec<Connection>>> {
     let mut net_table = HashMap::new();
     let raw_net_table = String::from_utf8(

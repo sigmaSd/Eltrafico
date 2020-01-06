@@ -1,16 +1,14 @@
 use crate::tc;
+use crate::Rate;
 use glib::Sender;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
-type Rate = Option<String>;
+use std::sync::mpsc;
+
 pub fn limit(
-    _programs_to_limit: Arc<Mutex<HashMap<String, (Rate, Rate)>>>,
     interface: &str,
     delay: Option<usize>,
-    running: Arc<AtomicBool>,
     tx: Sender<String>,
     rx: mpsc::Receiver<(String, (Rate, Rate))>,
 ) -> crate::CatchAll<()> {
@@ -19,89 +17,45 @@ pub fn limit(
     let program_to_trafficid_map = Rc::new(RefCell::new(HashMap::new()));
     let program_to_trafficid_map_c = program_to_trafficid_map.clone();
 
-    // lock the programs_to_limit map
-    //let mut programs_to_limit = programs_to_limit.lock().unwrap();
-    // look for a specified global limit
-    // let global_limit = if let Some(limit) = (*programs_to_limit).remove("global") {
-    //     limit
-    // } else {
-    //     (None, None)
-    // };
-
+    //todo handle global limits
+    let _global_limit = program_to_trafficid_map.borrow_mut().remove("global");
     let (ingress, egress) = tc::tc_setup(interface, None, None)?;
+
     let (ingress_interface, ingress_qdisc_id, ingress_root_class_id) = ingress;
     let (egress_interface, egress_qdisc_id, egress_root_class_id) = egress;
 
     let egress_interface_c = egress_interface.clone();
     let ingress_interface_c = ingress_interface.clone();
 
-    if let Ok(programs_to_limit) = rx.try_recv() {
-        dbg!(4);
-        let (program, (down, up)) = programs_to_limit;
-        let ingress_class_id = if let Some(down) = down {
-            Some(
-                tc::tc_add_htb_class(
+    let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
+
+    loop {
+        let active_connections = crate::lsof::lsof()?;
+        let mut active_ports = HashMap::new();
+
+        // check for new user limits
+        // and add htb class for them
+        // TODO remove freed htb classes
+        if let Ok(programs_to_limit) = rx.try_recv() {
+            let (program, (down, up)) = programs_to_limit;
+            let ingress_class_id = if let Some(down) = down {
+                Some(tc::tc_add_htb_class(
                     &ingress_interface_c,
                     ingress_qdisc_id,
                     ingress_root_class_id,
                     &down,
-                )
-                .unwrap(),
-            )
-        } else {
-            None
-        };
-
-        let egress_class_id = if let Some(up) = up {
-            Some(
-                tc::tc_add_htb_class(
-                    &egress_interface_c,
-                    egress_qdisc_id,
-                    egress_root_class_id,
-                    &up,
-                )
-                .unwrap(),
-            )
-        } else {
-            None
-        };
-
-        program_to_trafficid_map_c
-            .borrow_mut()
-            .insert(program, (ingress_class_id, egress_class_id));
-    };
-
-    let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
-
-    while running.load(Ordering::SeqCst) {
-        let active_connections = crate::lsof::lsof()?;
-        let mut active_ports = HashMap::new();
-        if let Ok(programs_to_limit) = rx.try_recv() {
-            let (program, (down, up)) = programs_to_limit;
-            let ingress_class_id = if let Some(down) = down {
-                Some(
-                    tc::tc_add_htb_class(
-                        &ingress_interface_c,
-                        ingress_qdisc_id,
-                        ingress_root_class_id,
-                        &down,
-                    )
-                    .unwrap(),
-                )
+                )?)
             } else {
                 None
             };
 
             let egress_class_id = if let Some(up) = up {
-                Some(
-                    tc::tc_add_htb_class(
-                        &egress_interface_c,
-                        egress_qdisc_id,
-                        egress_root_class_id,
-                        &up,
-                    )
-                    .unwrap(),
-                )
+                Some(tc::tc_add_htb_class(
+                    &egress_interface_c,
+                    egress_qdisc_id,
+                    egress_root_class_id,
+                    &up,
+                )?)
             } else {
                 None
             };
@@ -113,12 +67,6 @@ pub fn limit(
 
         // look for new ports to filter
         for (program, connections) in active_connections {
-            // if !(*programs_to_limit).contains_key(&program) {
-            //     // this is a new program
-            //     // send its name to the gui
-            //     tx.send(program.clone())?;
-            //     //(*programs_to_limit).insert(program.clone(), (None, None));
-            // }
             let program_in_map = program_to_trafficid_map
                 .borrow()
                 .get(&program)
@@ -126,14 +74,19 @@ pub fn limit(
             let (ingress_class_id, egress_class_id) = match program_in_map {
                 Some(id) => id,
                 None => {
+                    // this is a new program
+                    // add a placeholder for in the program_to_trafficid_map
+                    // and send it to the gui
                     program_to_trafficid_map
                         .borrow_mut()
                         .insert(program.clone(), (None, None));
-                    tx.send(program.clone()).unwrap();
+                    tx.send(program.clone())
+                        .expect("failed to send data to the main thread");
                     continue;
                 }
             };
 
+            // filter the connection ports accoding the user specified limits
             for con in connections {
                 if let Some(ingress_class_id) = ingress_class_id {
                     let ingress_port = (Ingress, con.lport.clone());
@@ -195,8 +148,6 @@ pub fn limit(
             std::thread::sleep(std::time::Duration::from_secs(delay as u64));
         }
     }
-
-    Ok(())
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]

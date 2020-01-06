@@ -17,12 +17,18 @@ pub fn limit(
     let program_to_trafficid_map = Rc::new(RefCell::new(HashMap::new()));
     let program_to_trafficid_map_c = program_to_trafficid_map.clone();
 
-    //todo handle global limits
-    let _global_limit = program_to_trafficid_map.borrow_mut().remove("global");
     let (ingress, egress) = tc::tc_setup(interface, None, None)?;
 
     let (ingress_interface, ingress_qdisc_id, ingress_root_class_id) = ingress;
     let (egress_interface, egress_qdisc_id, egress_root_class_id) = egress;
+
+    let ingress_interface = Rc::new(RefCell::new(ingress_interface));
+    let ingress_qdisc_id = Rc::new(RefCell::new(ingress_qdisc_id));
+    let ingress_root_class_id = Rc::new(RefCell::new(ingress_root_class_id));
+
+    let egress_interface = Rc::new(RefCell::new(egress_interface));
+    let egress_qdisc_id = Rc::new(RefCell::new(egress_qdisc_id));
+    let egress_root_class_id = Rc::new(RefCell::new(egress_root_class_id));
 
     let egress_interface_c = egress_interface.clone();
     let ingress_interface_c = ingress_interface.clone();
@@ -38,32 +44,53 @@ pub fn limit(
         // TODO remove freed htb classes
         if let Ok(programs_to_limit) = rx.try_recv() {
             let (program, (down, up)) = programs_to_limit;
-            let ingress_class_id = if let Some(down) = down {
-                Some(tc::tc_add_htb_class(
-                    &ingress_interface_c,
-                    ingress_qdisc_id,
-                    ingress_root_class_id,
-                    &down,
-                )?)
-            } else {
-                None
-            };
+            if program == "global" {
+                tc::clean_up("ifb0", "wlp3s0").unwrap();
+                let (new_ingress, new_egress) = tc::tc_setup(interface, down, up)?;
+                let (new_ingress_interface, new_ingress_qdisc_id, new_ingress_root_class_id) =
+                    new_ingress;
+                let (new_egress_interface, new_egress_qdisc_id, new_egress_root_class_id) =
+                    new_egress;
 
-            let egress_class_id = if let Some(up) = up {
-                Some(tc::tc_add_htb_class(
-                    &egress_interface_c,
-                    egress_qdisc_id,
-                    egress_root_class_id,
-                    &up,
-                )?)
+                *ingress_interface.borrow_mut() = new_ingress_interface;
+                *ingress_qdisc_id.borrow_mut() = new_ingress_qdisc_id;
+                *ingress_root_class_id.borrow_mut() = new_ingress_root_class_id;
+                *egress_interface.borrow_mut() = new_egress_interface;
+                *egress_qdisc_id.borrow_mut() = new_egress_qdisc_id;
+                *egress_root_class_id.borrow_mut() = new_egress_root_class_id;
             } else {
-                None
-            };
+                let ingress_class_id = if let Some(down) = down {
+                    Some(tc::tc_add_htb_class(
+                        &ingress_interface_c.borrow(),
+                        *ingress_qdisc_id.borrow(),
+                        *ingress_root_class_id.borrow(),
+                        &down,
+                    )?)
+                } else {
+                    None
+                };
 
-            program_to_trafficid_map_c
-                .borrow_mut()
-                .insert(program.clone(), (ingress_class_id, egress_class_id));
+                let egress_class_id = if let Some(up) = up {
+                    Some(tc::tc_add_htb_class(
+                        &egress_interface_c.borrow(),
+                        *egress_qdisc_id.borrow(),
+                        *egress_root_class_id.borrow(),
+                        &up,
+                    )?)
+                } else {
+                    None
+                };
+
+                program_to_trafficid_map_c
+                    .borrow_mut()
+                    .insert(program.clone(), (ingress_class_id, egress_class_id));
+            }
         };
+
+        let ingress_interface = ingress_interface.borrow().clone();
+        let ingress_qdisc_id = *ingress_qdisc_id.borrow();
+        let egress_interface = egress_interface.borrow().clone();
+        let egress_qdisc_id = *egress_qdisc_id.borrow();
 
         // look for new ports to filter
         for (program, connections) in active_connections {

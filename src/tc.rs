@@ -185,13 +185,11 @@ fn create_ifb_device() -> crate::CatchAll<String> {
         .into_iter()
         .map(|i| i.name)
         .collect();
-    dbg!(&before);
     run!("modprobe ifb numifbs=1")?;
     let after: HashSet<String> = crate::utils::ifconfig()?
         .into_iter()
         .map(|i| i.name)
         .collect();
-    dbg!(&after);
     let mut created_interface_name: Vec<&String> = after.difference(&before).collect();
     let created_interface_name = created_interface_name
         .pop()

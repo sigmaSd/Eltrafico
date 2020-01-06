@@ -11,8 +11,10 @@ macro_rules! run {
 pub fn run(v: String) -> CatchAll<Output> {
     // log all cmds
     // dbg!(&v);
-    let output = Command::new("sudo")
-        .args(v.clone().split_whitespace().collect::<Vec<&str>>())
+    let cmd = v.clone();
+    let mut cmd = cmd.split_whitespace();
+    let output = Command::new(cmd.next().expect("Tried to run an empty command"))
+        .args(cmd.collect::<Vec<&str>>())
         .output()?;
     if !output.stderr.is_empty() {
         eprintln!(

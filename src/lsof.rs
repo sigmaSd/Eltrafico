@@ -17,6 +17,9 @@ pub fn lsof() -> CatchAll<HashMap<String, Vec<Connection>>> {
     )?;
 
     let mut parse_row = |row: &str| -> Option<()> {
+        if !row.contains("ESTABLISHED") {
+            return None;
+        }
         let mut row = row.split_whitespace();
 
         let name = row.next()?;

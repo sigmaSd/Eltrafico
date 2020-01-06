@@ -1,37 +1,42 @@
-use crate::tc;
-use crate::Rate;
+use crate::tc::{self, *};
+use crate::{CatchAll, Rate};
 use glib::Sender;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::mpsc;
 
 pub fn limit(
-    interface: &str,
     delay: Option<usize>,
     tx: Sender<String>,
     rx: mpsc::Receiver<(String, (Rate, Rate))>,
 ) -> crate::CatchAll<()> {
     use TrafficType::*;
 
-    let program_to_trafficid_map = Rc::new(RefCell::new(HashMap::new()));
-    let program_to_trafficid_map_c = program_to_trafficid_map.clone();
+    let mut program_to_trafficid_map = HashMap::new();
 
-    let (ingress, egress) = tc::tc_setup(interface, None, None)?;
+    // block till we get an initial interface
+    // and while we're at it if we get a global limit msg save the values
+    let mut global_limit_record: (Rate, Rate) = Default::default();
+    let mut current_interface = loop {
+        if let Ok((msg_key, (msg_value1, msg_value2))) = rx.recv() {
+            if msg_key == "stop" {
+                return Ok(());
+            }
+            if msg_key == "interface" {
+                break msg_value1;
+            }
+            if msg_key == "global" {
+                global_limit_record = (msg_value1, msg_value2);
+            }
+        }
+    };
 
-    let (ingress_interface, ingress_qdisc_id, ingress_root_class_id) = ingress;
-    let (egress_interface, egress_qdisc_id, egress_root_class_id) = egress;
-
-    let ingress_interface = Rc::new(RefCell::new(ingress_interface));
-    let ingress_qdisc_id = Rc::new(RefCell::new(ingress_qdisc_id));
-    let ingress_root_class_id = Rc::new(RefCell::new(ingress_root_class_id));
-
-    let egress_interface = Rc::new(RefCell::new(egress_interface));
-    let egress_qdisc_id = Rc::new(RefCell::new(egress_qdisc_id));
-    let egress_root_class_id = Rc::new(RefCell::new(egress_root_class_id));
-
-    let egress_interface_c = egress_interface.clone();
-    let ingress_interface_c = ingress_interface.clone();
+    let (mut root_ingress, mut root_egress) = tc_setup(
+        &current_interface
+            .clone()
+            .expect("Error reading interface name"),
+        global_limit_record.0.clone(),
+        global_limit_record.1.clone(),
+    )?;
 
     let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
 
@@ -42,60 +47,73 @@ pub fn limit(
         // check for new user limits
         // and add htb class for them
         // TODO remove freed htb classes
-        if let Ok(programs_to_limit) = rx.try_recv() {
-            let (program, (down, up)) = programs_to_limit;
-            if program == "global" {
-                tc::clean_up("ifb0", "wlp3s0").unwrap();
-                let (new_ingress, new_egress) = tc::tc_setup(interface, down, up)?;
-                let (new_ingress_interface, new_ingress_qdisc_id, new_ingress_root_class_id) =
-                    new_ingress;
-                let (new_egress_interface, new_egress_qdisc_id, new_egress_root_class_id) =
-                    new_egress;
+        let msgs: Vec<(String, (Rate, Rate))> = rx.try_iter().collect();
+        // if a stop msg is in the channel queue
+        // dont go through the whole queue
+        // find last selected interface msg
+        // clean it up then quit
+        if msgs.iter().any(|(s, _)| s == "stop") {
+            let last_selected_interface = msgs.iter().rfind(|(i, _)| i == "interface");
+            if let Some(last_selected_interface) = last_selected_interface {
+                let (_, (_, last_selected_interface_name)) = last_selected_interface;
+                current_interface = last_selected_interface_name.clone();
+            }
+            tc::clean_up(
+                &root_ingress.interface,
+                &current_interface.expect("Error no interface is selected"),
+            )?;
+            break Ok(());
+        }
+        for msg in msgs {
+            let (program, (down, up)) = msg;
+            // look for a new selcted interface
+            if program == "interface" {
+                // down == up == interface_name
+                current_interface = down;
+                let interface_name = up.expect("Error reading interface name");
+                reset_tc(
+                    &interface_name,
+                    &mut root_ingress,
+                    &mut root_egress,
+                    global_limit_record.clone(),
+                    &mut filtered_ports,
+                )?;
+            }
+            // look for a global limit
+            else if program == "global" {
+                // save new values
+                global_limit_record = (down, up);
 
-                *ingress_interface.borrow_mut() = new_ingress_interface;
-                *ingress_qdisc_id.borrow_mut() = new_ingress_qdisc_id;
-                *ingress_root_class_id.borrow_mut() = new_ingress_root_class_id;
-                *egress_interface.borrow_mut() = new_egress_interface;
-                *egress_qdisc_id.borrow_mut() = new_egress_qdisc_id;
-                *egress_root_class_id.borrow_mut() = new_egress_root_class_id;
+                reset_tc(
+                    &current_interface
+                        .clone()
+                        .expect("Error no interface is selected"),
+                    &mut root_ingress,
+                    &mut root_egress,
+                    global_limit_record.clone(),
+                    &mut filtered_ports,
+                )?;
             } else {
                 let ingress_class_id = if let Some(down) = down {
-                    Some(tc::tc_add_htb_class(
-                        &ingress_interface_c.borrow(),
-                        *ingress_qdisc_id.borrow(),
-                        *ingress_root_class_id.borrow(),
-                        &down,
-                    )?)
+                    Some(tc::tc_add_htb_class(&root_ingress, &down)?)
                 } else {
                     None
                 };
 
                 let egress_class_id = if let Some(up) = up {
-                    Some(tc::tc_add_htb_class(
-                        &egress_interface_c.borrow(),
-                        *egress_qdisc_id.borrow(),
-                        *egress_root_class_id.borrow(),
-                        &up,
-                    )?)
+                    Some(tc::tc_add_htb_class(&root_egress, &up)?)
                 } else {
                     None
                 };
 
-                program_to_trafficid_map_c
-                    .borrow_mut()
+                program_to_trafficid_map
                     .insert(program.clone(), (ingress_class_id, egress_class_id));
             }
-        };
-
-        let ingress_interface = ingress_interface.borrow().clone();
-        let ingress_qdisc_id = *ingress_qdisc_id.borrow();
-        let egress_interface = egress_interface.borrow().clone();
-        let egress_qdisc_id = *egress_qdisc_id.borrow();
+        }
 
         // look for new ports to filter
         for (program, connections) in active_connections {
             let program_in_map = program_to_trafficid_map
-                .borrow()
                 .get(&program)
                 .map(ToOwned::to_owned);
             let (ingress_class_id, egress_class_id) = match program_in_map {
@@ -104,9 +122,7 @@ pub fn limit(
                     // this is a new program
                     // add a placeholder for in the program_to_trafficid_map
                     // and send it to the gui
-                    program_to_trafficid_map
-                        .borrow_mut()
-                        .insert(program.clone(), (None, None));
+                    program_to_trafficid_map.insert(program.clone(), (None, None));
                     tx.send(program.clone())
                         .expect("failed to send data to the main thread");
                     continue;
@@ -125,8 +141,8 @@ pub fn limit(
                     } else {
                         let ingress_filter_id = tc::add_ingress_filter(
                             &con.lport,
-                            &ingress_interface,
-                            ingress_qdisc_id,
+                            &root_ingress.interface,
+                            root_ingress.qdisc_id,
                             ingress_class_id,
                         )?;
                         active_ports.insert(ingress_port, ingress_filter_id);
@@ -143,8 +159,8 @@ pub fn limit(
                     } else {
                         let egress_filter_id = tc::add_egress_filter(
                             &con.lport,
-                            &egress_interface,
-                            egress_qdisc_id,
+                            &root_egress.interface,
+                            root_egress.qdisc_id,
                             egress_class_id,
                         )?;
                         active_ports.insert(egress_port, egress_filter_id);
@@ -158,10 +174,18 @@ pub fn limit(
             if !active_ports.contains_key(&port) {
                 match port.0 {
                     Ingress => {
-                        tc::tc_remove_u32_filter(&ingress_interface, &filter_id, ingress_qdisc_id)?;
+                        tc::tc_remove_u32_filter(
+                            &root_ingress.interface,
+                            &filter_id,
+                            root_ingress.qdisc_id,
+                        )?;
                     }
                     Egress => {
-                        tc::tc_remove_u32_filter(&egress_interface, &filter_id, egress_qdisc_id)?;
+                        tc::tc_remove_u32_filter(
+                            &root_egress.interface,
+                            &filter_id,
+                            root_egress.qdisc_id,
+                        )?;
                     }
                 }
             }
@@ -183,4 +207,23 @@ enum TrafficType {
     Ingress,
     /// Outgoing traffic
     Egress,
+}
+
+fn reset_tc(
+    current_interface: &str,
+    ingress: &mut Traffic,
+    egress: &mut Traffic,
+    global_limit: (Rate, Rate),
+    filtered_ports: &mut HashMap<(TrafficType, String), String>,
+) -> CatchAll<()> {
+    tc::clean_up(&ingress.interface, current_interface)?;
+    filtered_ports.clear();
+
+    let (new_ingress, new_egress) =
+        tc::tc_setup(current_interface, global_limit.0, global_limit.1)?;
+
+    *ingress = new_ingress;
+    *egress = new_egress;
+
+    Ok(())
 }

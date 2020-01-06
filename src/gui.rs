@@ -1,5 +1,4 @@
 use crate::limit;
-use crate::tc;
 use crate::Rate;
 use gio::prelude::*;
 use gtk::*;
@@ -11,6 +10,7 @@ fn build_ui(application: &gtk::Application) {
     // channels
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let (tx2, rx2) = mpsc::channel();
+    let tx2_c = tx2.clone();
 
     // ui build
     let window = gtk::ApplicationWindow::new(application);
@@ -19,12 +19,20 @@ fn build_ui(application: &gtk::Application) {
     window.set_border_width(10);
     window.set_position(gtk::WindowPosition::Center);
     window.set_default_size(300, 500);
+    window.connect_delete_event(move |_, _| {
+        while let Ok(_) = tx2_c.send(("stop".to_string(), (None, None))) {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+        Inhibit(false)
+    });
 
     let main_box = Box::new(Orientation::Vertical, 10);
+    let interface_row = create_interface_row(tx2.clone());
     let global_bar = create_row(Some("global"), tx2.clone());
     let app_box = Box::new(Orientation::Vertical, 10);
     let app_box_c = app_box.clone();
 
+    main_box.add(&interface_row);
     main_box.add(&global_bar);
     main_box.add(&app_box_c);
     window.add(&main_box);
@@ -32,7 +40,7 @@ fn build_ui(application: &gtk::Application) {
 
     // spawn limiter thread
     thread::spawn(|| {
-        if let Err(e) = limit::limit("wlp3s0", Some(2), tx, rx2) {
+        if let Err(e) = limit::limit(Some(2), tx, rx2) {
             panic!("Something happened: {}", e);
         }
     });
@@ -55,7 +63,6 @@ pub fn run() {
     });
 
     application.run(&args().collect::<Vec<_>>());
-    tc::clean_up("ifb0", "wlp3s0").expect("error while cleaning up");
 }
 
 fn create_row(name: Option<&str>, tx2: mpsc::Sender<(String, (Rate, Rate))>) -> Box {
@@ -97,4 +104,37 @@ fn create_row(name: Option<&str>, tx2: mpsc::Sender<(String, (Rate, Rate))>) -> 
     hbox.add(&set_btn);
 
     hbox
+}
+
+fn create_interface_row(tx2: mpsc::Sender<(String, (Rate, Rate))>) -> Box {
+    let label = Label::new(Some("Interface: "));
+    let combobox = ComboBoxText::new();
+    let interfaces = crate::utils::ifconfig().expect("Failed to get network interfaces");
+
+    interfaces
+        .into_iter()
+        .enumerate()
+        .for_each(|(idx, interface)| {
+            if interface.is_up() && !interface.name.starts_with("ifb") {
+                combobox.insert_text(idx as i32, &interface.name);
+            }
+        });
+
+    combobox.connect_changed(move |combobox| {
+        // jumping on the limit channel
+        // so we dont create a new channel
+        // it it cool?
+        let selected_interface = combobox.get_active_text().map(|s| s.to_string());
+        tx2.send((
+            "interface".to_string(),
+            (selected_interface.clone(), selected_interface),
+        ))
+        .expect("Error while sending interface name to limiter thread");
+    });
+
+    let interface_row = Box::new(Orientation::Horizontal, 10);
+    interface_row.add(&label);
+    interface_row.add(&combobox);
+
+    interface_row
 }

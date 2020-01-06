@@ -7,13 +7,26 @@ const MAX_RATE: &str = "4294967295";
 // This ID seems to be fixed for the ingress QDisc
 const INGRESS_QDISC_PARENT_ID: &str = "ffff:fff1";
 
-type Gress = (String, usize, usize);
+pub struct Traffic {
+    pub interface: String,
+    pub qdisc_id: usize,
+    pub class_id: usize,
+}
+impl Traffic {
+    fn new(interface: String, qdisc_id: usize, class_id: usize) -> Self {
+        Traffic {
+            interface,
+            qdisc_id,
+            class_id,
+        }
+    }
+}
 
 pub fn tc_setup(
     interface: &str,
     download_rate: Option<String>,
     upload_rate: Option<String>,
-) -> crate::CatchAll<(Gress, Gress)> {
+) -> crate::CatchAll<(Traffic, Traffic)> {
     let download_rate = download_rate.unwrap_or_else(|| MAX_RATE.to_string());
     let upload_rate = upload_rate.unwrap_or_else(|| MAX_RATE.to_string());
 
@@ -43,18 +56,16 @@ pub fn tc_setup(
         download_rate
     )?;
 
+    // assemble ingress traffic
+    let ingress = Traffic::new(ifb_device, ifb_device_qdisc_id, ifb_device_root_class_id);
+
     // Create default class that all traffic is routed through that doesn't match any other filter
-    let ifb_default_class_id = tc_add_htb_class(
-        &ifb_device,
-        ifb_device_qdisc_id,
-        ifb_device_root_class_id,
-        &download_rate,
-    )?;
+    let ifb_default_class_id = tc_add_htb_class(&ingress, &download_rate)?;
     run!(
         "tc filter add dev {} parent {}: prio 2 protocol ip u32 match u32 0 0 flowid {}:{}",
-        ifb_device,
-        ifb_device_qdisc_id,
-        ifb_device_qdisc_id,
+        ingress.interface,
+        ingress.qdisc_id,
+        ingress.qdisc_id,
         ifb_default_class_id
     )?;
 
@@ -75,46 +86,36 @@ pub fn tc_setup(
         upload_rate
     )?;
 
-    // Create default class that all traffic is routed through that doesn't match any other filter
-    let interface_default_class_id = tc_add_htb_class(
-        interface,
+    // assemble egress traffic
+    let egress = Traffic::new(
+        interface.to_string(),
         interface_qdisc_id,
         interface_root_class_id,
-        &upload_rate,
-    )?;
+    );
+
+    // Create default class that all traffic is routed through that doesn't match any other filter
+    let interface_default_class_id = tc_add_htb_class(&egress, &upload_rate)?;
     run!(
         "tc filter add dev {} parent {}: prio 2 protocol ip u32 match u32 0 0 flowid {}:{}",
-        interface,
-        interface_qdisc_id,
-        interface_qdisc_id,
+        egress.interface,
+        egress.qdisc_id,
+        egress.qdisc_id,
         interface_default_class_id
     )?;
 
-    Ok((
-        (ifb_device, ifb_device_qdisc_id, ifb_device_root_class_id),
-        (
-            interface.to_string(),
-            interface_qdisc_id,
-            interface_root_class_id,
-        ),
-    ))
+    Ok((ingress, egress))
 }
 
-pub fn tc_add_htb_class(
-    interface: &str,
-    parent_qdisc_id: usize,
-    parent_class_id: usize,
-    rate: &str,
-) -> crate::CatchAll<usize> {
-    let class_id = get_free_class_id(interface, parent_qdisc_id)?;
+pub fn tc_add_htb_class(parent_traffic: &Traffic, rate: &str) -> crate::CatchAll<usize> {
+    let class_id = get_free_class_id(&parent_traffic.interface, parent_traffic.qdisc_id)?;
     // rate of 1byte/s is the lowest we can specify. All classes added this way should only be allowed to borrow from the
     // parent class, otherwise it's possible to specify a rate higher than the global rate
     run!(
         "tc class add dev {} parent {}:{} classid {}:{} htb rate 8 ceil {}",
-        interface,
-        parent_qdisc_id,
-        parent_class_id,
-        parent_qdisc_id,
+        parent_traffic.interface,
+        parent_traffic.qdisc_id,
+        parent_traffic.class_id,
+        parent_traffic.qdisc_id,
         class_id,
         rate
     )?;

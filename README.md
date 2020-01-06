@@ -9,16 +9,18 @@ Currently Missing:
  - Logging
  - Parsing Yaml 
 
- # Usage
- `eltrafico device config Optional<delay>`
+ ## Usage
+ `sudo eltrafico device config Optional<delay>`
+ 
+ `sudo -E cargo device config`
  
   Exmaple of usage:
   
     # scan for active connections each second
-    eltrafico wlp3s0 config 1
+    sudo eltrafico wlp3s0 config 1
  
     # scan continuously for active connections
-    eltrafico wlp3s0 config
+    sudo eltrafico wlp3s0 config
  
  You need  a config file here is an example:
 
@@ -28,3 +30,6 @@ Currently Missing:
     # apps (use the command name used to invoke the program)
     fiefox d: 300kbps
     utorrent u: 200kbps
+
+## GUI branch [WIP]
+<img src="https://github.com/sigmaSd/Eltrafico/raw/gui/gui.png" width="70%" height="70%">

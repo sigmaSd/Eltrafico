@@ -15,6 +15,7 @@ pub fn limit(
 
     // block till we get an initial interface
     // and while we're at it if we get a global limit msg save the values
+    // also if we get stop msg quit early
     let mut global_limit_record: (Rate, Rate) = Default::default();
     let mut current_interface = loop {
         if let Ok((msg_key, (msg_value1, msg_value2))) = rx.recv() {
@@ -44,35 +45,35 @@ pub fn limit(
         let active_connections = crate::lsof::lsof()?;
         let mut active_ports = HashMap::new();
 
-        // check for new user limits
-        // and add htb class for them
-        // TODO remove freed htb classes
         let msgs: Vec<(String, (Rate, Rate))> = rx.try_iter().collect();
         // if a stop msg is in the channel queue
         // dont go through the whole queue
-        // find last selected interface msg
         // clean it up then quit
         if msgs.iter().any(|(s, _)| s == "stop") {
-            let last_selected_interface = msgs.iter().rfind(|(i, _)| i == "interface");
-            if let Some(last_selected_interface) = last_selected_interface {
-                let (_, (_, last_selected_interface_name)) = last_selected_interface;
-                current_interface = last_selected_interface_name.clone();
-            }
             tc::clean_up(
                 &root_ingress.interface,
                 &current_interface.expect("Error no interface is selected"),
             )?;
             break Ok(());
         }
+        // check for new user limits
+        // and add htb class for them
+        // TODO remove freed htb classes
         for msg in msgs {
             let (program, (down, up)) = msg;
             // look for a new selcted interface
             if program == "interface" {
+                let old_interface = current_interface
+                    .clone()
+                    .expect("Error reading old interface");
+                tc::clean_up(&root_ingress.interface, &old_interface)?;
+
                 // down == up == interface_name
                 current_interface = down;
-                let interface_name = up.expect("Error reading interface name");
                 reset_tc(
-                    &interface_name,
+                    &current_interface
+                        .clone()
+                        .expect("Error no interface is selected"),
                     &mut root_ingress,
                     &mut root_egress,
                     global_limit_record.clone(),
@@ -81,6 +82,11 @@ pub fn limit(
             }
             // look for a global limit
             else if program == "global" {
+                let old_interface = current_interface
+                    .clone()
+                    .expect("Error reading old interface");
+                tc::clean_up(&root_ingress.interface, &old_interface)?;
+
                 // save new values
                 global_limit_record = (down, up);
 
@@ -216,7 +222,6 @@ fn reset_tc(
     global_limit: (Rate, Rate),
     filtered_ports: &mut HashMap<(TrafficType, String), String>,
 ) -> CatchAll<()> {
-    tc::clean_up(&ingress.interface, current_interface)?;
     filtered_ports.clear();
 
     let (new_ingress, new_egress) =

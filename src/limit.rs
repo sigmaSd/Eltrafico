@@ -1,5 +1,6 @@
+use crate::gui::Message;
 use crate::tc::{self, *};
-use crate::{CatchAll, Rate};
+use crate::CatchAll;
 use glib::Sender;
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -7,7 +8,7 @@ use std::sync::mpsc;
 pub fn limit(
     delay: Option<usize>,
     tx: Sender<String>,
-    rx: mpsc::Receiver<(String, (Rate, Rate))>,
+    rx: mpsc::Receiver<Message>,
 ) -> crate::CatchAll<()> {
     use TrafficType::*;
 
@@ -16,25 +17,22 @@ pub fn limit(
     // block till we get an initial interface
     // and while we're at it if we get a global limit msg save the values
     // also if we get stop msg quit early
-    let mut global_limit_record: (Rate, Rate) = Default::default();
+    let mut global_limit_record: (Option<String>, Option<String>) = Default::default();
     let mut current_interface = loop {
-        if let Ok((msg_key, (msg_value1, msg_value2))) = rx.recv() {
-            if msg_key == "stop" {
-                return Ok(());
-            }
-            if msg_key == "interface" {
-                break msg_value1;
-            }
-            if msg_key == "global" {
-                global_limit_record = (msg_value1, msg_value2);
+        if let Ok(msg) = rx.recv() {
+            match msg {
+                Message::Stop => return Ok(()),
+                Message::Interface(name) => break name,
+                Message::Global(limit) => {
+                    global_limit_record = limit;
+                }
+                Message::Program(_) => (),
             }
         }
     };
 
     let (mut root_ingress, mut root_egress) = tc_setup(
-        &current_interface
-            .clone()
-            .expect("Error reading interface name"),
+        &current_interface,
         global_limit_record.0.clone(),
         global_limit_record.1.clone(),
     )?;
@@ -45,75 +43,63 @@ pub fn limit(
         let active_connections = crate::lsof::lsof()?;
         let mut active_ports = HashMap::new();
 
-        let msgs: Vec<(String, (Rate, Rate))> = rx.try_iter().collect();
+        let msgs: Vec<Message> = rx.try_iter().collect();
         // if a stop msg is in the channel queue
         // dont go through the whole queue
         // clean it up then quit
-        if msgs.iter().any(|(s, _)| s == "stop") {
-            tc::clean_up(
-                &root_ingress.interface,
-                &current_interface.expect("Error no interface is selected"),
-            )?;
+        if msgs.iter().any(|msg| msg == &Message::Stop) {
+            tc::clean_up(&root_ingress.interface, &current_interface)?;
             break Ok(());
         }
         // check for new user limits
         // and add htb class for them
         // TODO remove freed htb classes
         for msg in msgs {
-            let (program, (down, up)) = msg;
-            // look for a new selcted interface
-            if program == "interface" {
-                let old_interface = current_interface
-                    .clone()
-                    .expect("Error reading old interface");
-                tc::clean_up(&root_ingress.interface, &old_interface)?;
+            match msg {
+                Message::Interface(name) => {
+                    tc::clean_up(&root_ingress.interface, &current_interface)?;
 
-                // down == up == interface_name
-                current_interface = down;
-                reset_tc(
-                    &current_interface
-                        .clone()
-                        .expect("Error no interface is selected"),
-                    &mut root_ingress,
-                    &mut root_egress,
-                    global_limit_record.clone(),
-                    &mut filtered_ports,
-                )?;
-            }
-            // look for a global limit
-            else if program == "global" {
-                let old_interface = current_interface
-                    .clone()
-                    .expect("Error reading old interface");
-                tc::clean_up(&root_ingress.interface, &old_interface)?;
+                    current_interface = name;
+                    reset_tc(
+                        &current_interface,
+                        &mut root_ingress,
+                        &mut root_egress,
+                        global_limit_record.clone(),
+                        &mut filtered_ports,
+                    )?;
+                }
+                Message::Global(limit) => {
+                    tc::clean_up(&root_ingress.interface, &current_interface)?;
 
-                // save new values
-                global_limit_record = (down, up);
+                    // save new values
+                    global_limit_record = limit;
 
-                reset_tc(
-                    &current_interface
-                        .clone()
-                        .expect("Error no interface is selected"),
-                    &mut root_ingress,
-                    &mut root_egress,
-                    global_limit_record.clone(),
-                    &mut filtered_ports,
-                )?;
-            } else {
-                let ingress_class_id = if let Some(down) = down {
-                    Some(tc::tc_add_htb_class(&root_ingress, &down)?)
-                } else {
-                    None
-                };
+                    reset_tc(
+                        &current_interface,
+                        &mut root_ingress,
+                        &mut root_egress,
+                        global_limit_record.clone(),
+                        &mut filtered_ports,
+                    )?;
+                }
+                Message::Program((name, (down, up))) => {
+                    let ingress_class_id = if let Some(down) = down {
+                        Some(tc::tc_add_htb_class(&root_ingress, &down)?)
+                    } else {
+                        None
+                    };
 
-                let egress_class_id = if let Some(up) = up {
-                    Some(tc::tc_add_htb_class(&root_egress, &up)?)
-                } else {
-                    None
-                };
+                    let egress_class_id = if let Some(up) = up {
+                        Some(tc::tc_add_htb_class(&root_egress, &up)?)
+                    } else {
+                        None
+                    };
 
-                program_to_trafficid_map
-                    .insert(program.clone(), (ingress_class_id, egress_class_id));
+                    program_to_trafficid_map
+                        .insert(name.clone(), (ingress_class_id, egress_class_id));
+                }
+                // Already handled
+                Message::Stop => unreachable!(),
             }
         }
 
@@ -219,7 +205,7 @@ fn reset_tc(
     current_interface: &str,
     ingress: &mut Traffic,
     egress: &mut Traffic,
-    global_limit: (Rate, Rate),
+    global_limit: (Option<String>, Option<String>),
     filtered_ports: &mut HashMap<(TrafficType, String), String>,
 ) -> CatchAll<()> {
     filtered_ports.clear();

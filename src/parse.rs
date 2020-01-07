@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-type Rate = Option<String>;
-pub fn parse(config: String) -> crate::CatchAll<HashMap<String, (Rate, Rate)>> {
+pub fn parse(config: String) -> crate::CatchAll<HashMap<String, (Option<String>, Option<String>)>> {
     let mut map = HashMap::new();
 
     let file_data = std::fs::read_to_string(config)?;

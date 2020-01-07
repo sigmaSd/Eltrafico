@@ -17,7 +17,7 @@ Active program will automaticly show up
 
 Choose your limits then confirm with set button
 
-Default unit is "probably" bytes, so what you probably want is to specify the unit, exmp: "200kbps"
+Default unit is "probably" bytes, so what you probably want is to specify the unit, exp: "200kbps"
 
 # Current State
 Works on my pc (TM)

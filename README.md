@@ -19,5 +19,7 @@ Choose your limits then confirm with set button
 
 Default unit is "probably" bytes, so what you probably want is to specify the unit, exp: "200kbps"
 
+**Important**: Don't quit with `ctrl_c`, instead close the window so it can make the appropriate clean up (ToFix)
+
 # Current State
 Works on my pc (TM)

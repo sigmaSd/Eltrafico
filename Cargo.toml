@@ -6,7 +6,7 @@ edition = "2018"
 readme = "README.md"
 description = "NetLimiter-like traffic shaping for Linux"
 repository = "https://github.com/sigmaSd/Eltrafico/"
-license = "GPL3"
+license = "GPL-3.0"
 
 [dependencies]
 gtk = "0.8.0"

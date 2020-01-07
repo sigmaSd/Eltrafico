@@ -1,3 +1,6 @@
+#[cfg(not(unix))]
+compile_error!("This program is unix only for now");
+
 mod gui;
 mod limit;
 mod tc;

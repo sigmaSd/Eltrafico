@@ -1,10 +1,12 @@
 [package]
 name = "eltrafico"
-version = "1.0.1"
+version = "1.1.0"
 authors = ["Nbiba Bedis <bedisnbiba@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+readme = "README.md"
+description = "NetLimiter-like traffic shaping for Linux"
+repository = "https://github.com/sigmaSd/Eltrafico/"
+license = "GPL3"
 
 [dependencies]
 gtk = "0.8.0"

@@ -5,7 +5,7 @@ This is a port of https://github.com/cryzed/TrafficToll to rust.
 
 And a gui on top
 
-<img src="https://github.com/sigmaSd/Eltrafico/raw/gui/gui.png" width="70%" height="70%">
+<img src="./gui.png" width="70%" height="70%">
 
 # Usage
 sudo eltrafico

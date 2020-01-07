@@ -40,7 +40,8 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
     });
 
     let hbox = Box::new(Orientation::Horizontal, 20);
-    hbox.add(&title);
+    // TODO: make the label fixed size
+    hbox.pack_start(&title, true, false, 10);
     hbox.add(&down);
     hbox.add(&down_value);
     hbox.add(&up);

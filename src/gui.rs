@@ -31,11 +31,15 @@ fn build_ui(application: &gtk::Application) {
     let interface_row = create_interface_row(tx2.clone());
     let global_bar = create_row(Some("global"), tx2.clone(), true);
     let app_box = Box::new(Orientation::Vertical, 10);
-    let app_box_c = app_box.clone();
+
+    // make the app box vertically scrollable
+    let scrolled_box: ScrolledWindow = ScrolledWindow::new::<Adjustment, Adjustment>(None, None);
+    scrolled_box.set_property_hscrollbar_policy(PolicyType::Never);
+    scrolled_box.add(&app_box);
 
     main_box.add(&interface_row);
     main_box.add(&global_bar);
-    main_box.add(&app_box_c);
+    main_box.pack_end(&scrolled_box, true, true, 10);
     window.add(&main_box);
     window.show_all();
 

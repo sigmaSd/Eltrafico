@@ -8,7 +8,7 @@ And a gui on top
 <img src="./gui.png" width="70%" height="70%">
 
 # Usage
-sudo eltrafico
+`sudo eltrafico`
 
 # Howto
 Choose the correct interface, and eltrafico will monitor it for active connections

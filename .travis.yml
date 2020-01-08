@@ -1,0 +1,18 @@
+language: rust
+
+cache: cargo
+
+deploy:
+  provider: releases
+  api_key:
+    secure: wKbg8qtDDfsZ6rUUHICxL7yOggIxk+OkE+vXC55a/zNH6aOl6yW7aaQnuNoNfr7U/rY1aPXXJVnzH9xemq/GiQ0gb4oZh7Sd0X9RTaTqkXVrI1lAHvMMiV9C/N2FJO/ThexyaQZ4IXVi2ZxTuUZSZiCXj7IY4bT0SmkQgCXDFj4d/WmhVOmBKGTU9s8l6yDDte3NfmDSFS4SkAv2JyiuPRmvz4Um1e2wvuzAMbqD0GPUnXMuyUTBRpiuqjh+Bv18d8amUrVctx/kyf9Xvn9auUFYMi6wduPQgglZB/mOXMS67ioV+wEHHXrcL5dxJKshVvsJj7W86coWLn9giIzYfVgpGK/H5VgFwImqKg4ayGCD169+WlVciJVzwUB0+PHpYAU+tl1Rx1l1J5sdZguiKcepILIc8Y63xfYt1/kfqw3Qb2BWQHEf3ivJhGPMtUmvCNDuQ0vQOCWUMkWHH8v66iVX5rJ0/T46xMCxvRCc3d2PGBaDyXEkF6fziBtGDb345vxWxA8HKFFAHpg2tbfcpJNsn0oUmjldHsNZ4x6VB8oFavuA4VrI8NsOhXpZafVCsVbK3dHS43zOO/ztBpn5yMtL8PTl8NKyPipSj/h8R0th8XbSXimjv8Y5O7qIA9Ih6UuSXbGQaInYQHFgDF0g0Z+Vq7FN3p9vcEm6XI0Sy4I=
+  file: ./target/releases/eltrafico
+  on:
+    repo: sigmaSd/Eltrafico
+
+script:
+ - cargo r --release
+
+notifications:
+  email:
+    on_success: never

@@ -12,14 +12,14 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
     let up_value = Entry::new();
     up_value.set_placeholder_text(Some("None"));
 
-    let set_btn = Button::new_with_label("set limit");
+    let set_btn = Button::new_with_label("Set");
 
     let d_c = down_value.clone();
     let u_c = up_value.clone();
     let name = name.unwrap_or("?").to_string();
 
     // send the program name and its limits to the limiter thread
-    set_btn.connect_clicked(move |_btn| {
+    set_btn.connect_clicked(move |btn| {
         let send_limits = || -> Option<()> {
             let down = d_c.get_text()?.to_string();
             let down = if down.is_empty() { None } else { Some(down) };
@@ -38,6 +38,19 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
         };
         // ignore getting text from Entry widget errors
         let _ = send_limits();
+
+        // visual feedback
+        btn.set_label("Ok!");
+    });
+
+    // visual feedback
+    let set_btn_c = set_btn.clone();
+    down_value.connect_changed(move |_| {
+        set_btn_c.set_label("Set");
+    });
+    let set_btn_c = set_btn.clone();
+    up_value.connect_changed(move |_| {
+        set_btn_c.set_label("Set");
     });
 
     let hbox = Box::new(Orientation::Horizontal, 20);

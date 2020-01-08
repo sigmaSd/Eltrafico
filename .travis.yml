@@ -1,20 +1,17 @@
 language: rust
 sudo: true
 cache: cargo
-
 deploy:
   provider: releases
   api_key:
-    secure: wKbg8qtDDfsZ6rUUHICxL7yOggIxk+OkE+vXC55a/zNH6aOl6yW7aaQnuNoNfr7U/rY1aPXXJVnzH9xemq/GiQ0gb4oZh7Sd0X9RTaTqkXVrI1lAHvMMiV9C/N2FJO/ThexyaQZ4IXVi2ZxTuUZSZiCXj7IY4bT0SmkQgCXDFj4d/WmhVOmBKGTU9s8l6yDDte3NfmDSFS4SkAv2JyiuPRmvz4Um1e2wvuzAMbqD0GPUnXMuyUTBRpiuqjh+Bv18d8amUrVctx/kyf9Xvn9auUFYMi6wduPQgglZB/mOXMS67ioV+wEHHXrcL5dxJKshVvsJj7W86coWLn9giIzYfVgpGK/H5VgFwImqKg4ayGCD169+WlVciJVzwUB0+PHpYAU+tl1Rx1l1J5sdZguiKcepILIc8Y63xfYt1/kfqw3Qb2BWQHEf3ivJhGPMtUmvCNDuQ0vQOCWUMkWHH8v66iVX5rJ0/T46xMCxvRCc3d2PGBaDyXEkF6fziBtGDb345vxWxA8HKFFAHpg2tbfcpJNsn0oUmjldHsNZ4x6VB8oFavuA4VrI8NsOhXpZafVCsVbK3dHS43zOO/ztBpn5yMtL8PTl8NKyPipSj/h8R0th8XbSXimjv8Y5O7qIA9Ih6UuSXbGQaInYQHFgDF0g0Z+Vq7FN3p9vcEm6XI0Sy4I=
+    secure: dD4of4OkNrV4vY1mcq1rzIrNQYhGJhj5Auz5LAcMQntchUoVaYpxXhODlbeDqyz7dbEOfaQgs7nnozhzDKZ0CtWbfYJMs9unnT7y1rdRApymy0UlAjqeJ7P+ffHF/JnWuW66+o507sc/dcnhBoglrNHQkrySJqb83RkIVKoltKW4Y8bMseVCDJroLbePFlVtnBb4jr2ORb55EoFfau2o7y0iEa6SlpCxzXVvznCEi5ZVgetS01ghBhiqXP/h5GVGO2OUp63WJiyIB2+kSWVIe11tmrYJ9eJT6bErvHM5rFb8j+fZof9IDh9RZowfawk6ZqWXbOKNtHD1Lz98WLJF7bd7rTBGSyQykaF5buM4MrOX2FJ/926NEmSEqRvYuPdR7sikQON2CHS0bH83Dq+WOrMjgw6WYtnxs8eD9iw/cLMdNBohlLeBHrR2o7+kB5IX+vKrARrQ1y0VUPBb93/jBW8HUVjGNtc1IHzf32Shfxp2JdoXvnCN1ithgrSVLjpGEX3dKLn+U+lZtiZ0djbWXyYRzvWAg1mOWIsLpzQSMFBtZl/GrgHoJqY0usvVUX38aIAgRcpf+a3XWL6Vsf+Jn6svr1uLrct6VIKHLtUhMJ5DNhPkisiGq//GYuWcfjty1Fd6d0U+Nhf4imqZ9DRNJ1JqKlH2tOd54K3hoJkFiY4=
   file: target/release/eltrafico
-  skip_cleanup: true
   on:
     repo: sigmaSd/Eltrafico
-
+    skip_cleanup: true
 script:
- - sudo apt-get install libgtk-3-dev
- - cargo b --release
-
+- sudo apt-get install libgtk-3-dev
+- cargo b --release
 notifications:
   email:
     on_success: never

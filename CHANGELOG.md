@@ -1,3 +1,6 @@
+**1.4.0**
+- Add visual feedback
+
 **1.3.0**
 - Switch from `lsof` to `ss` and from `ifconfig` to `ifstat`so now `eltrafico` only depends on `iproute2` which is a core pkg as far as I know. Also add a check in case someone actually doesn't have it
 

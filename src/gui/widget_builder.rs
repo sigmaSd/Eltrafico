@@ -61,7 +61,7 @@ pub fn create_interface_row(tx2: mpsc::Sender<Message>) -> Box {
         .into_iter()
         .enumerate()
         .for_each(|(idx, interface)| {
-            if interface.is_up() && !interface.name.starts_with("ifb") {
+            if !interface.name.starts_with("ifb") {
                 combobox.insert_text(idx as i32, &interface.name);
             }
         });

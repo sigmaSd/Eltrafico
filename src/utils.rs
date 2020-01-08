@@ -2,6 +2,18 @@ use crate::CatchAll;
 use std::collections::HashMap;
 use std::process::{Command, Output};
 
+pub fn check_for_iproute2() -> Result<(), String> {
+    const TOOLS: [&str; 4] = ["tc", "ss", "ifstat", "ip"];
+    for tool in &TOOLS {
+        if let Err(e) = std::process::Command::new(tool).output() {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Err(format!("Missing program: {}\nIs iproute2 installed?", tool));
+            }
+        }
+    }
+    Ok(())
+}
+
 // run macro
 #[macro_export]
 macro_rules! run {

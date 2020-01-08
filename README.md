@@ -24,7 +24,7 @@ Default unit is "probably" bytes, so what you probably want is to specify the un
 ## Current State
 Works on my pc (TM)
 
-## Dependeceis
+## Dependencies
  - `iproute2`
 
 ## [Changelog](./CHANGELOG.md)

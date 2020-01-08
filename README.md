@@ -26,5 +26,12 @@ Works on my pc (TM)
 
 ## Dependencies
  - `iproute2`
+ 
+## Releases
+- Automatic releases by travis are uploaded https://github.com/sigmaSd/Eltrafico/releases
+
+## Building
+- needs gtk-dev: https://gtk-rs.org/docs/requirements.html
+- cargo b --release
 
 ## [Changelog](./CHANGELOG.md)

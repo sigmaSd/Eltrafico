@@ -86,49 +86,43 @@ fn tifconfig() {
     dbg!(ifconfig());
 }
 
-// lsof
+// ss
 #[test]
-fn tlsof() {
-    dbg!(lsof());
+fn tss() {
+    dbg!(ss());
 }
 
-pub fn lsof() -> CatchAll<HashMap<String, Vec<Connection>>> {
+pub fn ss() -> CatchAll<HashMap<String, Vec<Connection>>> {
+    let raw_net_table = run!("ss -n -t -p  state established")?;
+    let raw_net_table = String::from_utf8(raw_net_table.stdout)?;
+
     let mut net_table = HashMap::new();
-    let raw_net_table = String::from_utf8(
-        Command::new("lsof")
-            .args(&["-i", "-n", "-P"])
-            .output()?
-            .stdout,
-    )?;
 
-    let mut parse_row = |row: &str| -> Option<()> {
-        if !row.contains("ESTABLISHED") {
-            return None;
-        }
+    let mut parse = |row: &str| -> Option<()> {
         let mut row = row.split_whitespace();
+        let laddr_lport = row.nth(2)?;
+        let raddr_rport = row.next()?;
+        let process = row.next()?;
 
-        let name = row.next()?;
+        let mut laddr_lport = laddr_lport.split(':');
+        let laddr = laddr_lport.next()?;
+        let lport = laddr_lport.next()?;
 
-        let raw_connection = row.nth(7)?;
-        let mut raw_connection = raw_connection.split("->");
+        let mut raddr_rport = raddr_rport.split(':');
+        let raddr = raddr_rport.next()?;
+        let rport = raddr_rport.next()?;
 
-        let mut lconn = raw_connection.next()?.split(':');
-        let laddr = lconn.next()?;
-        let lport = lconn.next()?;
-
-        let mut rconn = raw_connection.next()?.split(':');
-        let raddr = rconn.next()?;
-        let rport = rconn.next()?;
-
-        let net_entry: &mut Vec<Connection> =
-            net_table.entry(name.to_string()).or_insert_with(Vec::new);
+        let process = process.split('\"').nth(1)?.split('\"').next()?;
+        let net_entry: &mut Vec<Connection> = net_table
+            .entry(process.to_string())
+            .or_insert_with(Vec::new);
         net_entry.push(Connection::new(laddr, lport, raddr, rport));
 
         Some(())
     };
 
     for row in raw_net_table.lines().skip(1) {
-        let _ = parse_row(row);
+        let _ = parse(row);
     }
 
     Ok(net_table)

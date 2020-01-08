@@ -1,6 +1,6 @@
 use crate::gui::Message;
 use crate::tc::{self, *};
-use crate::utils::lsof;
+use crate::utils::ss;
 use crate::CatchAll;
 use glib::Sender;
 use std::collections::HashMap;
@@ -41,7 +41,6 @@ pub fn limit(
     let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
 
     loop {
-        let active_connections = lsof()?;
         let mut active_ports = HashMap::new();
 
         let msgs: Vec<Message> = rx.try_iter().collect();
@@ -105,6 +104,8 @@ pub fn limit(
         }
 
         // look for new ports to filter
+        let active_connections = ss()?;
+
         for (program, connections) in active_connections {
             let program_in_map = program_to_trafficid_map
                 .get(&program)

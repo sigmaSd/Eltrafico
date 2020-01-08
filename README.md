@@ -21,5 +21,10 @@ Default unit is "probably" bytes, so what you probably want is to specify the un
 
 **Important**: Don't quit with `ctrl_c`, instead close the window so it can make the appropriate clean up (ToFix)
 
-# Current State
+## Current State
 Works on my pc (TM)
+
+## Dependeceis
+ - `iproute2`
+
+## [Changelog](./CHANGELOG.md)

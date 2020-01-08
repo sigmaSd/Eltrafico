@@ -28,35 +28,25 @@ pub fn run(v: String) -> CatchAll<Output> {
     Ok(output)
 }
 
-// ifconfig
-pub fn ifconfig() -> CatchAll<Vec<Interface>> {
-    let output = run!("ifconfig")?;
+#[test]
+fn tifstat() {
+    dbg!(ifstat());
+}
+// ifstat
+pub fn ifstat() -> CatchAll<Vec<Interface>> {
+    let output = run!("ifstat")?;
     let output = String::from_utf8(output.stdout)?;
 
-    // get the first line of each paragraph of the output then parse it
-    let output: Vec<&str> = output.lines().collect();
     let interfaces = output
-        // split by paragraph
-        .split(|l| l.is_empty())
-        // get the first line of each paragraph
-        .filter_map(|p| p.iter().next())
-        // parse the interface name and status
-        .filter_map(|row| {
-            let status = if row.contains("UP") {
-                Status::Up
-            } else if row.contains("DOWN") {
-                Status::Down
-            } else {
-                return None;
-            };
-            let name = match row.split(':').next() {
-                Some(name) => name,
-                None => return None,
-            };
-            Some(Interface {
-                name: name.to_string(),
-                status,
-            })
+        .lines()
+        .skip(3)
+        .step_by(2)
+        .filter_map(|l| l.split_whitespace().next())
+        .map(|name| Interface {
+            name: name.to_string(),
+            // A disadvantage of using ifstat is that we cant tell if the interface is up or not
+            // Workaround: always assume its down
+            status: Status::Down,
         })
         .collect();
 
@@ -79,11 +69,6 @@ impl Interface {
 enum Status {
     Up,
     Down,
-}
-
-#[test]
-fn tifconfig() {
-    dbg!(ifconfig());
 }
 
 // ss

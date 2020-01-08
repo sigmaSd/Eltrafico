@@ -1,4 +1,5 @@
 use super::Message;
+use crate::utils::ifstat;
 use gtk::*;
 use std::sync::mpsc;
 
@@ -54,7 +55,7 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
 pub fn create_interface_row(tx2: mpsc::Sender<Message>) -> Box {
     let label = Label::new(Some("Interface: "));
     let combobox = ComboBoxText::new();
-    let interfaces = crate::utils::ifconfig().expect("Failed to get network interfaces");
+    let interfaces = ifstat().expect("Failed to get network interfaces");
 
     interfaces
         .into_iter()

@@ -13,20 +13,18 @@ And a gui on top
 # Howto
 Choose the correct interface, and eltrafico will monitor it for active connections
 
-Active program will automaticly show up
+Active program will automatically show up
 
 Choose your limits then confirm with set button
 
 Default unit is "probably" bytes, so what you probably want is to specify the unit, exp: "200kbps"
-
-**Important**: Don't quit with `ctrl_c`, instead close the window so it can make the appropriate clean up (ToFix)
 
 ## Current State
 Works on my pc (TM)
 
 ## Dependencies
  - `iproute2`
- 
+
 ## Releases
 - Automatic releases by travis are uploaded https://github.com/sigmaSd/Eltrafico/releases
 

@@ -1,3 +1,6 @@
+**1.5.0**
+- handle `ctrlc` signal (perform cleanup before shutdown)
+
 **1.4.0**
 - Add visual feedback
 

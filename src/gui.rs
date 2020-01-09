@@ -12,6 +12,7 @@ fn build_ui(application: &gtk::Application) {
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let (tx2, rx2) = mpsc::channel();
     let tx2_c = tx2.clone();
+    let tx2_cc = tx2.clone();
 
     // ui build
     let window = gtk::ApplicationWindow::new(application);
@@ -20,11 +21,15 @@ fn build_ui(application: &gtk::Application) {
     window.set_border_width(10);
     window.set_position(gtk::WindowPosition::Center);
     window.set_default_size(300, 500);
+
+    // Cleanup at exit
     window.connect_delete_event(move |_, _| {
-        while let Ok(_) = tx2_c.send(Message::Stop) {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-        Inhibit(false)
+        tx2_c.send(Message::Stop).expect("error sending stop msg");
+        Inhibit(true)
+    });
+    glib::source::unix_signal_add(2, move || {
+        tx2_cc.send(Message::Stop).expect("error sending stop msg");
+        Continue(false)
     });
 
     let main_box = Box::new(Orientation::Vertical, 10);
@@ -48,6 +53,9 @@ fn build_ui(application: &gtk::Application) {
         if let Err(e) = limit::limit(Some(2), tx, rx2) {
             panic!("Something happened: {}", e);
         }
+        // if limiter finishes
+        // then its time to exit
+        std::process::exit(0)
     });
 
     // callback to add new programs to gui

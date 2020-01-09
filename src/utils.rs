@@ -2,18 +2,6 @@ use crate::CatchAll;
 use std::collections::HashMap;
 use std::process::{Command, Output};
 
-pub fn check_for_iproute2() -> Result<(), String> {
-    const TOOLS: [&str; 4] = ["tc", "ss", "ifstat", "ip"];
-    for tool in &TOOLS {
-        if let Err(e) = std::process::Command::new(tool).output() {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                return Err(format!("Missing program: {}\nIs iproute2 installed?", tool));
-            }
-        }
-    }
-    Ok(())
-}
-
 // run macro
 #[macro_export]
 macro_rules! run {
@@ -38,6 +26,23 @@ pub fn run(v: String) -> CatchAll<Output> {
         );
     }
     Ok(output)
+}
+
+pub fn is_root() -> CatchAll<bool> {
+    let output = run!("id -ur")?;
+    let user_id: usize = String::from_utf8(output.stdout)?.trim().parse()?;
+    Ok(user_id == 0)
+}
+pub fn check_for_iproute2() -> Result<(), String> {
+    const TOOLS: [&str; 4] = ["tc", "ss", "ifstat", "ip"];
+    for tool in &TOOLS {
+        if let Err(e) = std::process::Command::new(tool).output() {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Err(format!("Missing program: {}\nIs iproute2 installed?", tool));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[test]

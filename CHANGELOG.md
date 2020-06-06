@@ -1,5 +1,9 @@
+**1.6.0**
+- Switch form `ifstat` to `ifconfig -a` for enumerating interfaces, this fixes a crash where `ifstat` fails to detect the newly created `ifb` interface
+- Add a root permission check
+
 **1.5.0**
-- handle `ctrlc` signal (perform cleanup before shutdown)
+- Handle `ctrlc` signal (perform cleanup before shutdown)
 
 **1.4.0**
 - Add visual feedback

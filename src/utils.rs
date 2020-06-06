@@ -12,7 +12,8 @@ macro_rules! run {
 
 pub fn run(v: String) -> CatchAll<Output> {
     // log all cmds
-    // dbg!(&v);
+    //dbg!(&v);
+
     let cmd = v.clone();
     let mut cmd = cmd.split_whitespace();
     let output = Command::new(cmd.next().expect("Tried to run an empty command"))
@@ -33,12 +34,12 @@ pub fn is_root() -> CatchAll<bool> {
     let user_id: usize = String::from_utf8(output.stdout)?.trim().parse()?;
     Ok(user_id == 0)
 }
-pub fn check_for_iproute2() -> Result<(), String> {
-    const TOOLS: [&str; 4] = ["tc", "ss", "ifstat", "ip"];
+pub fn check_for_dependencies() -> Result<(), String> {
+    const TOOLS: [&str; 4] = ["tc", "ss", "ifconfig", "ip"];
     for tool in &TOOLS {
         if let Err(e) = std::process::Command::new(tool).output() {
             if e.kind() == std::io::ErrorKind::NotFound {
-                return Err(format!("Missing program: {}\nIs iproute2 installed?", tool));
+                return Err(format!("Missing program: {}", tool));
             }
         }
     }
@@ -46,24 +47,36 @@ pub fn check_for_iproute2() -> Result<(), String> {
 }
 
 #[test]
-fn tifstat() {
-    dbg!(ifstat());
+fn tifconfig() {
+    dbg!(ifconfig());
 }
-// ifstat
-pub fn ifstat() -> CatchAll<Vec<Interface>> {
-    let output = run!("ifstat")?;
+// ifconfig
+pub fn ifconfig() -> CatchAll<Vec<Interface>> {
+    let output = run!("ifconfig -a")?;
     let output = String::from_utf8(output.stdout)?;
 
+    // get the first line of each paragraph of the output then parse it
+    let output: Vec<&str> = output.lines().collect();
     let interfaces = output
-        .lines()
-        .skip(3)
-        .step_by(2)
-        .filter_map(|l| l.split_whitespace().next())
-        .map(|name| Interface {
-            name: name.to_string(),
-            // A disadvantage of using ifstat is that we cant tell if the interface is up or not
-            // Workaround: always assume its down
-            status: Status::Down,
+        // split by paragraph
+        .split(|l| l.is_empty())
+        // get the first line of each paragraph
+        .filter_map(|p| p.iter().next())
+        // parse the interface name and status
+        .filter_map(|row| {
+            let status = if row.contains("UP") {
+                Status::Up
+            } else {
+                Status::Down
+            };
+            let name = match row.split(':').next() {
+                Some(name) => name,
+                None => return None,
+            };
+            Some(Interface {
+                name: name.to_string(),
+                status,
+            })
         })
         .collect();
 

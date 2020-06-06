@@ -5,7 +5,7 @@ mod gui;
 mod limit;
 mod tc;
 mod utils;
-use utils::{check_for_iproute2, is_root};
+use utils::{check_for_dependencies, is_root};
 
 pub type CatchAll<T> = Result<T, Box<dyn std::error::Error>>;
 
@@ -14,7 +14,7 @@ fn main() {
         eprintln!("This program needs sudo privilege");
         std::process::exit(1);
     }
-    if let Err(e) = check_for_iproute2() {
+    if let Err(e) = check_for_dependencies() {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     };

@@ -1,5 +1,5 @@
 use crate::run;
-use crate::utils::ifstat;
+use crate::utils::ifconfig;
 use std::collections::HashSet;
 // "TC store rates as a 32-bit unsigned integer in bps internally, so we can specify a max rate of 4294967295 bps"
 // (source: `$ man tc`)
@@ -171,7 +171,7 @@ fn get_free_class_id(interface: &str, qdisc_id: usize) -> crate::CatchAll<usize>
 }
 
 pub fn acquire_ifb_device() -> crate::CatchAll<String> {
-    let interfaces = ifstat()?;
+    let interfaces = ifconfig()?;
     if let Some(interface) = interfaces.iter().find(|i| i.name.starts_with("ifb")) {
         if !interface.is_up() {
             activate_interface(&interface.name)?;
@@ -183,9 +183,9 @@ pub fn acquire_ifb_device() -> crate::CatchAll<String> {
 }
 
 fn create_ifb_device() -> crate::CatchAll<String> {
-    let before: HashSet<String> = ifstat()?.into_iter().map(|i| i.name).collect();
+    let before: HashSet<String> = ifconfig()?.into_iter().map(|i| i.name).collect();
     run!("modprobe ifb numifbs=1")?;
-    let after: HashSet<String> = ifstat()?.into_iter().map(|i| i.name).collect();
+    let after: HashSet<String> = ifconfig()?.into_iter().map(|i| i.name).collect();
     let mut created_interface_name: Vec<&String> = after.difference(&before).collect();
     let created_interface_name = created_interface_name
         .pop()

@@ -24,6 +24,7 @@ Works on my pc (TM)
 
 ## Dependencies
  - `iproute2`
+ - `ifconfig`
 
 ## Releases
 - Automatic releases by travis are uploaded https://github.com/sigmaSd/Eltrafico/releases

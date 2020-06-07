@@ -34,10 +34,13 @@ pub fn is_root() -> CatchAll<bool> {
     let user_id: usize = String::from_utf8(output.stdout)?.trim().parse()?;
     Ok(user_id == 0)
 }
-pub fn check_for_dependencies() -> Result<(), String> {
-    const TOOLS: [&str; 4] = ["tc", "ss", "ifconfig", "ip"];
-    for tool in &TOOLS {
-        if let Err(e) = std::process::Command::new(tool).output() {
+pub fn check_for_dependencies(dependencies: &[&str]) -> Result<(), String> {
+    for tool in dependencies {
+        if let Err(e) = std::process::Command::new(tool)
+            // use -h so programs like nethogs dont stay open indefinitely
+            .arg("-h")
+            .output()
+        {
             if e.kind() == std::io::ErrorKind::NotFound {
                 return Err(format!("Missing program: {}", tool));
             }

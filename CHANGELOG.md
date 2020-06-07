@@ -1,3 +1,6 @@
+**1.7.0**
+- Show programs live network usage using [nethogs](https://github.com/raboof/nethogs) as an optional dependency
+
 **1.6.0**
 - Switch form `ifstat` to `ifconfig -a` for enumerating interfaces, this fixes a crash where `ifstat` fails to detect the newly created `ifb` interface
 - Add a root permission check

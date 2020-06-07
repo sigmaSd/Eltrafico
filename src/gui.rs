@@ -1,15 +1,20 @@
 mod widget_builder;
 use crate::limit;
+use crate::nethogs::nethogs;
+use crate::utils::check_for_dependencies;
 use gio::prelude::*;
 use gtk::*;
+use std::collections::HashMap;
 use std::env::args;
 use std::sync::mpsc;
 use std::thread;
-use widget_builder::{create_interface_row, create_row};
+use widget_builder::*;
 
 fn build_ui(application: &gtk::Application) {
     // channels
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    let tx_c = tx.clone();
+
     let (tx2, rx2) = mpsc::channel();
     let tx2_c = tx2.clone();
     let tx2_cc = tx2.clone();
@@ -58,11 +63,32 @@ fn build_ui(application: &gtk::Application) {
         std::process::exit(0)
     });
 
+    // If nethogs is installed on the system
+    // spawn nethogs thread
+    if check_for_dependencies(&["nethogs"]).is_ok() {
+        thread::spawn(|| {
+            if let Err(e) = nethogs(tx_c) {
+                panic!("Nethogs error: {}", e);
+            }
+        });
+    }
+
     // callback to add new programs to gui
-    rx.attach(None, move |program| {
-        let app_bar = create_row(Some(&program), tx2.clone(), false);
-        app_box.add(&app_bar);
-        app_box.show_all();
+    rx.attach(None, move |message| {
+        match message {
+            UpdateGuiMessage::ProgramEntry(program) => {
+                let app_bar = create_row(Some(&program), tx2.clone(), false);
+                app_box.add(&app_bar);
+                app_box.show_all();
+            }
+            UpdateGuiMessage::CurrentProgramSpeed(prgoram_current_speed) => {
+                update_gui_program_speed(app_box.clone(), prgoram_current_speed);
+            }
+            UpdateGuiMessage::CurrentGlobalSpeed(global_speed) => {
+                update_gui_global_speed(global_bar.clone(), global_speed);
+            }
+        }
+
         glib::Continue(true)
     });
 }
@@ -84,4 +110,10 @@ pub enum Message {
     Interface(String),
     Global((Option<String>, Option<String>)),
     Program((String, (Option<String>, Option<String>))),
+}
+
+pub enum UpdateGuiMessage {
+    ProgramEntry(String),
+    CurrentProgramSpeed(HashMap<String, (f32, f32)>),
+    CurrentGlobalSpeed((f32, f32)),
 }

@@ -1,10 +1,12 @@
 use super::Message;
 use crate::utils::ifconfig;
 use gtk::*;
+use std::collections::HashMap;
 use std::sync::mpsc;
 
 pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) -> Box {
     let title = Label::new(name);
+    let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));
     let down_value = Entry::new();
     down_value.set_placeholder_text(Some("None"));
@@ -56,6 +58,7 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
     let hbox = Box::new(Orientation::Horizontal, 20);
     // TODO: make the label fixed size
     hbox.pack_start(&title, true, false, 10);
+    hbox.add(&current_speed);
     hbox.add(&down);
     hbox.add(&down_value);
     hbox.add(&up);
@@ -63,6 +66,38 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
     hbox.add(&set_btn);
 
     hbox
+}
+
+pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<String, (f32, f32)>) {
+    use glib::object::Cast;
+    let programs = app_box.get_children();
+    for program in programs {
+        let program: gtk::Box = program.clone().downcast().unwrap();
+        let program = program.get_children();
+        let name: gtk::Label = program[0].clone().downcast().unwrap();
+        let name = name.get_text().unwrap().to_string();
+        let speed: gtk::Label = program[1].clone().downcast().unwrap();
+        if programs_speed.contains_key(&name) {
+            speed.set_label(&format!(
+                "Down: {} KB/sec Up: {} KB/sec",
+                programs_speed[&name].1, programs_speed[&name].0
+            ));
+        } else {
+            // Program data wasent sent from nethogs thread
+            // That means its not active network wise anymore
+            // Update label as feedback
+            speed.set_label("Down: 0 KB/sec Up: 0 KB/se");
+        }
+    }
+}
+
+pub fn update_gui_global_speed(global_bar: gtk::Box, global_speed: (f32, f32)) {
+    use glib::object::Cast;
+    let speed: gtk::Label = global_bar.get_children()[1].clone().downcast().unwrap();
+    speed.set_label(&format!(
+        "Down: {} KB/sec Up: {} KB/sec",
+        global_speed.1, global_speed.0
+    ));
 }
 
 pub fn create_interface_row(tx2: mpsc::Sender<Message>) -> Box {

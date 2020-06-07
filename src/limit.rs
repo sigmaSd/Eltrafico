@@ -1,4 +1,4 @@
-use crate::gui::Message;
+use crate::gui::{Message, UpdateGuiMessage};
 use crate::tc::{self, *};
 use crate::utils::ss;
 use crate::CatchAll;
@@ -8,7 +8,7 @@ use std::sync::mpsc;
 
 pub fn limit(
     delay: Option<usize>,
-    tx: Sender<String>,
+    tx: Sender<UpdateGuiMessage>,
     rx: mpsc::Receiver<Message>,
 ) -> crate::CatchAll<()> {
     use TrafficType::*;
@@ -114,10 +114,10 @@ pub fn limit(
                 Some(id) => id,
                 None => {
                     // this is a new program
-                    // add a placeholder for in the program_to_trafficid_map
+                    // add a placeholder for it in the program_to_trafficid_map
                     // and send it to the gui
                     program_to_trafficid_map.insert(program.clone(), (None, None));
-                    tx.send(program.clone())
+                    tx.send(UpdateGuiMessage::ProgramEntry(program.clone()))
                         .expect("failed to send data to the main thread");
                     continue;
                 }

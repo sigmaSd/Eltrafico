@@ -19,12 +19,16 @@ Choose your limits then confirm with set button
 
 Default unit is "probably" bytes, so what you probably want is to specify the unit, exp: "200kbps"
 
+If [nethogs](https://github.com/raboof/nethogs) is installed on your system, `eltrafico` will use it automatically to show programs live network usage
+
 ## Current State
 Works on my pc (TM)
 
 ## Dependencies
  - `iproute2`
  - `ifconfig`
+ *optional*
+ - [nethogs](https://github.com/raboof/nethogs)
 
 ## Releases
 - Automatic releases by travis are uploaded https://github.com/sigmaSd/Eltrafico/releases

@@ -7,6 +7,10 @@ And a gui on top
 
 <img src="./gui.png" width="70%" height="70%">
 
+With network usage:
+
+<img src="./gui_with_network_usage.png" width="70%" height="70%">
+
 # Usage
 `sudo eltrafico`
 
@@ -27,7 +31,8 @@ Works on my pc (TM)
 ## Dependencies
  - `iproute2`
  - `ifconfig`
- *optional*
+ 
+ **optional:**
  - [nethogs](https://github.com/raboof/nethogs)
 
 ## Releases

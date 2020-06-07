@@ -27,7 +27,8 @@ Works on my pc (TM)
 ## Dependencies
  - `iproute2`
  - `ifconfig`
- *optional*
+ 
+ **optional:**
  - [nethogs](https://github.com/raboof/nethogs)
 
 ## Releases

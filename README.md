@@ -34,6 +34,8 @@ Eltrafico is split on 2 binaries that communicate through stdin/out (since versi
 
 This allows to run the gui as a normal user, and ask for higher privilege only for `eltrafico_tc` and `nethogs` binaries
 
+`eltrafico_tc` needs to be in `$PATH` or you can specify a custom path via `--eltrafico-tc $path_to_binary`
+
 ## Current State
 Works on my pc (TM)
 

@@ -50,6 +50,6 @@ Works on my pc (TM)
 ## Building/Dev
 - needs gtk-dev: https://gtk-rs.org/docs/requirements.html
 - cargo b --bins
-- cargo r --eltrafico-tc target/debug/eltrafico_tc
+- cargo r -- --eltrafico-tc target/debug/eltrafico_tc
 
 ## [Changelog](./CHANGELOG.md)

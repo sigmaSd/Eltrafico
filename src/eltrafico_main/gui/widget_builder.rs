@@ -1,10 +1,14 @@
 use super::Message;
 use crate::utils::ifconfig;
 use gtk::*;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::mpsc;
+use std::io::Write;
+use std::rc::Rc;
 
-pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) -> Box {
+type SharedStdinHandle = Rc<RefCell<Option<std::process::ChildStdin>>>;
+
+pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> Box {
     let title = Label::new(name);
     let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));
@@ -29,11 +33,23 @@ pub fn create_row(name: Option<&str>, tx2: mpsc::Sender<Message>, global: bool) 
             let up = if up.is_empty() { None } else { Some(up) };
 
             if global {
-                tx2.send(Message::Global((down, up)))
-                    .expect("failed to send data to the limiter thread");
+                writeln!(
+                    stdin.borrow_mut().as_mut().unwrap(),
+                    "{}",
+                    Message::Global((down, up))
+                )
+                .unwrap();
+            //tx2.send(Message::Global((down, up)))
+            //    .expect("failed to send data to the limiter thread");
             } else {
-                tx2.send(Message::Program((name.clone(), (down, up))))
-                    .expect("failed to send data to the limiter thread");
+                writeln!(
+                    stdin.borrow_mut().as_mut().unwrap(),
+                    "{}",
+                    Message::Program((name.clone(), (down, up)))
+                )
+                .unwrap();
+                //tx2.send(Message::Program((name.clone(), (down, up))))
+                //    .expect("failed to send data to the limiter thread");
             }
 
             Some(())
@@ -100,7 +116,7 @@ pub fn update_gui_global_speed(global_bar: gtk::Box, global_speed: (f32, f32)) {
     ));
 }
 
-pub fn create_interface_row(tx2: mpsc::Sender<Message>) -> Box {
+pub fn create_interface_row(stdin: SharedStdinHandle) -> Box {
     let label = Label::new(Some("Interface: "));
     let combobox = ComboBoxText::new();
     let interfaces = ifconfig().expect("Failed to get network interfaces");
@@ -119,8 +135,14 @@ pub fn create_interface_row(tx2: mpsc::Sender<Message>) -> Box {
             .get_active_text()
             .expect("Error reading interface name")
             .to_string();
-        tx2.send(Message::Interface(selected_interface))
-            .expect("Error while sending interface name to limiter thread");
+        writeln!(
+            stdin.borrow_mut().as_mut().unwrap(),
+            "{}",
+            Message::Interface(selected_interface)
+        )
+        .unwrap();
+        //tx2.send(Message::Interface(selected_interface))
+        //    .expect("Error while sending interface name to limiter thread");
     });
 
     let interface_row = Box::new(Orientation::Horizontal, 10);

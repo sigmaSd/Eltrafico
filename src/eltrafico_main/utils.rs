@@ -1,5 +1,4 @@
 use crate::CatchAll;
-use std::collections::HashMap;
 use std::process::{Command, Output};
 
 // run macro
@@ -29,11 +28,6 @@ pub fn run(v: String) -> CatchAll<Output> {
     Ok(output)
 }
 
-pub fn is_root() -> CatchAll<bool> {
-    let output = run!("id -ur")?;
-    let user_id: usize = String::from_utf8(output.stdout)?.trim().parse()?;
-    Ok(user_id == 0)
-}
 pub fn check_for_dependencies(dependencies: &[&str]) -> Result<(), String> {
     for tool in dependencies {
         if let Err(e) = std::process::Command::new(tool)
@@ -92,75 +86,29 @@ pub struct Interface {
     status: Status,
 }
 
-impl Interface {
-    pub fn is_up(&self) -> bool {
-        self.status == Status::Up
-    }
-}
-
 #[derive(PartialEq, Eq, Debug)]
 enum Status {
     Up,
     Down,
 }
 
-// ss
-#[test]
-fn tss() {
-    dbg!(ss());
-}
-
-pub fn ss() -> CatchAll<HashMap<String, Vec<Connection>>> {
-    let raw_net_table = run!("ss -n -t -p  state established")?;
-    let raw_net_table = String::from_utf8(raw_net_table.stdout)?;
-
-    let mut net_table = HashMap::new();
-
-    let mut parse = |row: &str| -> Option<()> {
-        let mut row = row.split_whitespace();
-        let laddr_lport = row.nth(2)?;
-        let raddr_rport = row.next()?;
-        let process = row.next()?;
-
-        let mut laddr_lport = laddr_lport.split(':');
-        let laddr = laddr_lport.next()?;
-        let lport = laddr_lport.next()?;
-
-        let mut raddr_rport = raddr_rport.split(':');
-        let raddr = raddr_rport.next()?;
-        let rport = raddr_rport.next()?;
-
-        let process = process.split('\"').nth(1)?.split('\"').next()?;
-        let net_entry: &mut Vec<Connection> = net_table
-            .entry(process.to_string())
-            .or_insert_with(Vec::new);
-        net_entry.push(Connection::new(laddr, lport, raddr, rport));
-
-        Some(())
-    };
-
-    for row in raw_net_table.lines().skip(1) {
-        let _ = parse(row);
-    }
-
-    Ok(net_table)
-}
-
-#[derive(Debug)]
-pub struct Connection {
-    laddr: String,
-    pub lport: String,
-    raddr: String,
-    rport: String,
-}
-
-impl Connection {
-    fn new(laddr: &str, lport: &str, raddr: &str, rport: &str) -> Connection {
-        Connection {
-            laddr: laddr.to_string(),
-            lport: lport.to_string(),
-            raddr: raddr.to_string(),
-            rport: rport.to_string(),
+pub fn finde_eltrafico_tc() -> String {
+    if check_for_dependencies(&["eltrafico_tc"]).is_err() {
+        const ERR_MSG: &str =
+            "Could not find eltrafico_tc, you can specify its path with --eltrafico-tc";
+        let args: Vec<String> = std::env::args().collect();
+        let pos = args
+            .iter()
+            .position(|a| a.as_str() == "--eltrafico-tc")
+            .expect(ERR_MSG);
+        let path = args.get(pos + 1).expect(ERR_MSG);
+        //pkexec require absolute path
+        let path = std::path::Path::new(path).canonicalize().unwrap();
+        if !path.exists() {
+            panic!("Can't find {:?}", path);
         }
+        path.to_str().unwrap().to_string()
+    } else {
+        "eltrafico_tc".into()
     }
 }

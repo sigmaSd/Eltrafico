@@ -12,7 +12,7 @@ With network usage:
 <img src="./gui_with_network_usage.png" width="70%" height="70%">
 
 # Usage
-`sudo eltrafico`
+`eltrafico`
 
 # Howto
 Choose the correct interface, and eltrafico will monitor it for active connections
@@ -44,11 +44,12 @@ Works on my pc (TM)
  **optional:**
  - [nethogs](https://github.com/raboof/nethogs)
 
-## Releases
-- Automatic releases by travis are uploaded https://github.com/sigmaSd/Eltrafico/releases
-
-## Building
+## Installation
+ - cargo install eltrafico
+ 
+## Building/Dev
 - needs gtk-dev: https://gtk-rs.org/docs/requirements.html
-- cargo b --release
+- cargo b --bins
+- cargo r --eltrafico-tc target/debug/eltrafico_tc
 
 ## [Changelog](./CHANGELOG.md)

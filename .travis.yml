@@ -8,14 +8,20 @@ deploy:
   provider: releases
   api_key:
     secure: dD4of4OkNrV4vY1mcq1rzIrNQYhGJhj5Auz5LAcMQntchUoVaYpxXhODlbeDqyz7dbEOfaQgs7nnozhzDKZ0CtWbfYJMs9unnT7y1rdRApymy0UlAjqeJ7P+ffHF/JnWuW66+o507sc/dcnhBoglrNHQkrySJqb83RkIVKoltKW4Y8bMseVCDJroLbePFlVtnBb4jr2ORb55EoFfau2o7y0iEa6SlpCxzXVvznCEi5ZVgetS01ghBhiqXP/h5GVGO2OUp63WJiyIB2+kSWVIe11tmrYJ9eJT6bErvHM5rFb8j+fZof9IDh9RZowfawk6ZqWXbOKNtHD1Lz98WLJF7bd7rTBGSyQykaF5buM4MrOX2FJ/926NEmSEqRvYuPdR7sikQON2CHS0bH83Dq+WOrMjgw6WYtnxs8eD9iw/cLMdNBohlLeBHrR2o7+kB5IX+vKrARrQ1y0VUPBb93/jBW8HUVjGNtc1IHzf32Shfxp2JdoXvnCN1ithgrSVLjpGEX3dKLn+U+lZtiZ0djbWXyYRzvWAg1mOWIsLpzQSMFBtZl/GrgHoJqY0usvVUX38aIAgRcpf+a3XWL6Vsf+Jn6svr1uLrct6VIKHLtUhMJ5DNhPkisiGq//GYuWcfjty1Fd6d0U+Nhf4imqZ9DRNJ1JqKlH2tOd54K3hoJkFiY4=
-  file: target/release/eltrafico
+  file: eltrafico_pkg
   skip_cleanup: true
   on:
     repo: sigmaSd/Eltrafico
 
 script:
 - sudo apt-get install libgtk-3-dev
-- cargo b --release
+- cargo b --bins --release
+
+# prepare pkg for debloy
+- mkdir eltrafico_pkg
+- cp target/release/eltrafico eltrafico_pkg
+- cp target/release/eltrafico_tc eltrafico_pkg
+- tar -cvf eltrafico.tar eltrafico_pkg
 
 notifications:
   email:

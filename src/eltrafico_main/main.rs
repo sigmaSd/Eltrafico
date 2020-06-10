@@ -2,8 +2,6 @@
 compile_error!("This program is unix only for now");
 
 mod gui;
-//mod limit;
-//mod tc;
 mod utils;
 use utils::check_for_dependencies;
 mod nethogs;

@@ -34,6 +34,11 @@ pub fn nethogs(tx: Sender<UpdateGuiMessage>) -> CatchAll<()> {
     loop {
         while !raw_output.ends_with("\n\n") {
             stdout.read_line(&mut raw_output)?;
+
+            // nethogs stopped
+            if raw_output.is_empty() {
+                return Ok(());
+            }
         }
         // skip nethogs -t header
         if !raw_output.contains("Refreshing") {

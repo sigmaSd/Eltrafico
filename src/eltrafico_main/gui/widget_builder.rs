@@ -39,8 +39,6 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
                     Message::Global((down, up))
                 )
                 .unwrap();
-            //tx2.send(Message::Global((down, up)))
-            //    .expect("failed to send data to the limiter thread");
             } else {
                 writeln!(
                     stdin.borrow_mut().as_mut().unwrap(),
@@ -48,8 +46,6 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
                     Message::Program((name.clone(), (down, up)))
                 )
                 .unwrap();
-                //tx2.send(Message::Program((name.clone(), (down, up))))
-                //    .expect("failed to send data to the limiter thread");
             }
 
             Some(())
@@ -141,8 +137,6 @@ pub fn create_interface_row(stdin: SharedStdinHandle) -> Box {
             Message::Interface(selected_interface)
         )
         .unwrap();
-        //tx2.send(Message::Interface(selected_interface))
-        //    .expect("Error while sending interface name to limiter thread");
     });
 
     let interface_row = Box::new(Orientation::Horizontal, 10);

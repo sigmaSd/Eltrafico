@@ -7,9 +7,9 @@ use gtk::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Write;
+use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 use std::thread;
 use widget_builder::*;
 
@@ -40,18 +40,16 @@ fn build_ui(application: &gtk::Application) {
         .unwrap();
 
     let stdin = Rc::new(RefCell::new(cmd.stdin));
-    let stdout = Arc::new(Mutex::new(cmd.stdout));
+    let mut stdout = cmd.stdout;
 
     // listen to tc thread stdout and send output to gui
     std::thread::spawn(move || {
         let mut tmp = String::new();
+        let mut stdout = BufReader::new(stdout.as_mut().unwrap());
+
         loop {
-            let mut stdout = stdout.lock().unwrap();
-            use std::io::{BufRead, BufReader};
-            BufReader::new(stdout.as_mut().unwrap())
-                .read_line(&mut tmp)
-                .unwrap();
-            if tmp.trim() == "Stop" {
+            stdout.read_line(&mut tmp).unwrap();
+            if tmp.is_empty() || tmp.trim() == "Stop" {
                 tx_c.send(UpdateGuiMessage::Stop).unwrap();
             } else {
                 tx_c.send(UpdateGuiMessage::ProgramEntry(tmp.trim().to_string()))

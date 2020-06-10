@@ -6,14 +6,28 @@ use std::io::{self, BufRead};
 use std::process::{Command, Stdio};
 
 pub fn nethogs(tx: Sender<UpdateGuiMessage>) -> CatchAll<()> {
-    let mut cmd = Command::new("nethogs")
+    let mut cmd = Command::new("pkexec")
+        .arg("nethogs")
         .arg("-t")
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
     let stdout = cmd
         .stdout
         .as_mut()
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Err while reading nethogs output"))?;
+    // use std::io::Read;
+    // let stderr = cmd
+    //     .stderr
+    //     .as_mut()
+    //     .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Err while reading nethogs output"))?;
+    //
+    // let mut err = String::new();
+    // stderr.read_to_string(&mut err).unwrap();
+    // if !err.is_empty() {
+    //     return Err(err).map_err(|e| e.into());
+    // }
+
     let mut stdout = std::io::BufReader::new(stdout);
     let mut raw_output = String::new();
 

@@ -7,6 +7,15 @@ readme = "README.md"
 description = "NetLimiter-like traffic shaping for Linux"
 repository = "https://github.com/sigmaSd/Eltrafico/"
 license = "GPL-3.0"
+default-run = "eltrafico"
+
+[[bin]]
+name = "eltrafico"
+path = "src/eltrafico_main/main.rs"
+
+[[bin]]
+name = "eltrafico_tc"
+path = "src/eltrafico_tc/main.rs"
 
 [dependencies]
 gtk = "0.8.1"

@@ -38,9 +38,9 @@ This allows to run the gui as a normal user, and ask for higher privilege only f
 
 **pkexec usage:**
 
-1- pkexec eltrafico_tc
-2- pkexec nethogs
-3- pkexec pkill nethogs
+- pkexec eltrafico_tc
+- pkexec nethogs
+- pkexec pkill nethogs
 
 ## Current State
 Works on my pc (TM)

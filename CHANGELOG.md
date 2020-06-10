@@ -1,4 +1,5 @@
 **2.0.0**
+
 Eltrafico is now split on 2 binaries:
 1- `eltrafico`: create gui and call `nethogs` and `eltrafico_tc` as privileged process using `pkexec`
 2- `eltrafico_tc`: traffic shaping, can be controlled via stdin, for the list of commands see https://github.com/sigmaSd/Eltrafico/blob/sudo_isolation/src/eltrafico_tc/main.rs#L252 and https://github.com/sigmaSd/Eltrafico/blob/sudo_isolation/src/eltrafico_tc/main.rs#L79

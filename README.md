@@ -37,6 +37,7 @@ This allows to run the gui as a normal user, and ask for higher privilege only f
 `eltrafico_tc` needs to be in `$PATH` or you can specify a custom path via `--eltrafico-tc $path_to_binary`
 
 **pkexec usage**
+
 1- pkexec eltrafico_tc
 2- pkexec nethogs
 3- pkexec pkill nethogs

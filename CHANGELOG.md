@@ -1,3 +1,8 @@
+**2.1.0**
+- Add prcedence to --eltrafico-tc over $PATH
+- Check if nethogs is running before using pkill
+- Improve error handling, code cleanup
+
 **2.0.0**
 Eltrafico is now split on 2 binaries:
 1- `eltrafico`: create gui and call `nethogs` and `eltrafico_tc` as privileged process using `pkexec`

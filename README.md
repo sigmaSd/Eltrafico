@@ -26,7 +26,7 @@ Default unit is "probably" bytes, so what you probably want is to specify the un
 If [nethogs](https://github.com/raboof/nethogs) is installed on your system, `eltrafico` will use it automatically to show programs live network usage
 
 ## Technical details
-Eltrafico is split on 2 binaries that communicate through stdin/out (since version 0.2.0, unreleased):
+Eltrafico is split on 2 binaries that communicate through stdin/out:
 
 1- `eltrafico`: create gui and call `nethogs` and `eltrafico_tc` as privileged process using pkexec
 

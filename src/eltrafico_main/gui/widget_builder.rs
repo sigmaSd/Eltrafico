@@ -1,5 +1,6 @@
 use super::Message;
 use crate::utils::ifconfig;
+use glib::object::Cast;
 use gtk::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -26,32 +27,26 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
 
     // send the program name and its limits to the limiter thread
     set_btn.connect_clicked(move |btn| {
-        let send_limits = || -> Option<()> {
-            let down = d_c.get_text()?.to_string();
-            let down = if down.is_empty() { None } else { Some(down) };
-            let up = u_c.get_text()?.to_string();
-            let up = if up.is_empty() { None } else { Some(up) };
+        let down = d_c.get_text().unwrap().to_string();
+        let down = if down.is_empty() { None } else { Some(down) };
+        let up = u_c.get_text().unwrap().to_string();
+        let up = if up.is_empty() { None } else { Some(up) };
 
-            if global {
-                writeln!(
-                    stdin.borrow_mut().as_mut().unwrap(),
-                    "{}",
-                    Message::Global((down, up))
-                )
-                .unwrap();
-            } else {
-                writeln!(
-                    stdin.borrow_mut().as_mut().unwrap(),
-                    "{}",
-                    Message::Program((name.clone(), (down, up)))
-                )
-                .unwrap();
-            }
-
-            Some(())
-        };
-        // ignore getting text from Entry widget errors
-        let _ = send_limits();
+        if global {
+            writeln!(
+                stdin.borrow_mut().as_mut().unwrap(),
+                "{}",
+                Message::Global((down, up))
+            )
+            .expect("Error sending Global limit to eltrafico_tc");
+        } else {
+            writeln!(
+                stdin.borrow_mut().as_mut().unwrap(),
+                "{}",
+                Message::Program((name.clone(), (down, up)))
+            )
+            .expect("Error sending Program limit to eltrafico_tc");
+        }
 
         // visual feedback
         btn.set_label("Ok!");
@@ -81,7 +76,6 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
 }
 
 pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<String, (f32, f32)>) {
-    use glib::object::Cast;
     let programs = app_box.get_children();
     for program in programs {
         let program: gtk::Box = program.clone().downcast().unwrap();
@@ -104,7 +98,6 @@ pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<Strin
 }
 
 pub fn update_gui_global_speed(global_bar: gtk::Box, global_speed: (f32, f32)) {
-    use glib::object::Cast;
     let speed: gtk::Label = global_bar.get_children()[1].clone().downcast().unwrap();
     speed.set_label(&format!(
         "Down: {} KB/sec Up: {} KB/sec",
@@ -136,7 +129,7 @@ pub fn create_interface_row(stdin: SharedStdinHandle) -> Box {
             "{}",
             Message::Interface(selected_interface)
         )
-        .unwrap();
+        .expect("Error sending interface to eltrafico_tc");
     });
 
     let interface_row = Box::new(Orientation::Horizontal, 10);

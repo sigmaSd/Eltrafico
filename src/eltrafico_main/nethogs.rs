@@ -23,7 +23,7 @@ pub fn nethogs(tx: Sender<UpdateGuiMessage>) -> CatchAll<()> {
     //     .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Err while reading nethogs output"))?;
     //
     // let mut err = String::new();
-    // stderr.read_to_string(&mut err).unwrap();
+    // stderr.read_to_string(&mut err)?;
     // if !err.is_empty() {
     //     return Err(err).map_err(|e| e.into());
     // }

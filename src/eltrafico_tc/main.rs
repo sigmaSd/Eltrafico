@@ -29,7 +29,7 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
     let mut msg = String::new();
 
     let mut current_interface = loop {
-        rx.read_line(&mut msg).unwrap();
+        rx.read_line(&mut msg)?;
         if !msg.is_empty() {
             match msg.clone().into() {
                 Message::Stop => {
@@ -61,7 +61,8 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
     std::thread::spawn(move || {
         let mut tmp = String::new();
         loop {
-            rx.read_line(&mut tmp).unwrap();
+            rx.read_line(&mut tmp)
+                .expect("Error reading message from eltrfico");
             *msgs_c.lock().unwrap() = tmp.clone();
             tmp.clear();
         }
@@ -258,44 +259,47 @@ pub enum Message {
 
 impl From<String> for Message {
     fn from(msg: String) -> Message {
-        use Message::*;
-        match msg.trim() {
-            "Stop" => Stop,
-            msg if msg.starts_with("Interface: ") => {
-                Interface(msg.split("Interface: ").nth(1).unwrap().to_string())
+        let parse = || -> Option<Message> {
+            use Message::*;
+            match msg.trim() {
+                "Stop" => Some(Stop),
+                msg if msg.starts_with("Interface: ") => {
+                    Some(Interface(msg.split("Interface: ").nth(1)?.to_string()))
+                }
+                msg if msg.starts_with("Global: ") => {
+                    let msg = msg.split("Global: ").nth(1)?;
+                    let mut msg = msg.split_whitespace();
+                    let mut up = msg.next().map(ToString::to_string);
+                    let mut down = msg.next().map(ToString::to_string);
+
+                    if up == Some("None".into()) {
+                        up = None;
+                    }
+                    if down == Some("None".into()) {
+                        down = None;
+                    }
+
+                    Some(Global((up, down)))
+                }
+                msg if msg.starts_with("Program: ") => {
+                    let msg = msg.split("Program: ").nth(1)?;
+                    let mut msg = msg.split_whitespace();
+                    let program_name = msg.next()?.to_string();
+                    let mut up = msg.next().map(ToString::to_string);
+                    let mut down = msg.next().map(ToString::to_string);
+
+                    if up == Some("None".into()) {
+                        up = None;
+                    }
+                    if down == Some("None".into()) {
+                        down = None;
+                    }
+
+                    Some(Program((program_name, (up, down))))
+                }
+                msg => panic!("Uknown msg recieved: {}", msg),
             }
-            msg if msg.starts_with("Global: ") => {
-                let msg = msg.split("Global: ").nth(1).unwrap();
-                let mut msg = msg.split_whitespace();
-                let mut up = msg.next().map(ToString::to_string);
-                let mut down = msg.next().map(ToString::to_string);
-
-                if up == Some("None".into()) {
-                    up = None;
-                }
-                if down == Some("None".into()) {
-                    down = None;
-                }
-
-                Global((up, down))
-            }
-            msg if msg.starts_with("Program: ") => {
-                let msg = msg.split("Program: ").nth(1).unwrap();
-                let mut msg = msg.split_whitespace();
-                let program_name = msg.next().unwrap().to_string();
-                let mut up = msg.next().map(ToString::to_string);
-                let mut down = msg.next().map(ToString::to_string);
-
-                if up == Some("None".into()) {
-                    up = None;
-                }
-                if down == Some("None".into()) {
-                    down = None;
-                }
-
-                Program((program_name, (up, down)))
-            }
-            msg => panic!("Uknown msg recieved: {}", msg),
-        }
+        };
+        parse().expect(&format!("Malformated message: {}", msg))
     }
 }

@@ -2,7 +2,7 @@ mod widget_builder;
 use crate::nethogs::nethogs;
 use crate::run;
 use crate::utils::check_for_dependencies;
-use crate::utils::finde_eltrafico_tc;
+use crate::utils::find_eltrafico_tc;
 use gio::prelude::*;
 use gtk::*;
 use std::cell::RefCell;
@@ -19,18 +19,8 @@ fn build_ui(application: &gtk::Application) {
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let tx_c = tx.clone();
 
-    // If nethogs is installed on the system
-    // spawn nethogs thread
-    if check_for_dependencies(&["nethogs"]).is_ok() {
-        thread::spawn(|| {
-            if let Err(e) = nethogs(tx) {
-                panic!("Nethogs error: {}", e);
-            }
-        });
-    }
-
     // spawn tc thread
-    let eltrafico_tc = finde_eltrafico_tc();
+    let eltrafico_tc = find_eltrafico_tc().expect("Cannot find eltrafico_tc binary");
     let cmd = Command::new("pkexec")
         .arg(eltrafico_tc)
         .stdout(Stdio::piped())
@@ -38,7 +28,7 @@ fn build_ui(application: &gtk::Application) {
         // Debug
         //.stderr(log)
         .spawn()
-        .unwrap();
+        .expect("Error spawning eltrafico_tc");
 
     let stdin = Rc::new(RefCell::new(cmd.stdin));
     let mut stdout = cmd.stdout;
@@ -49,16 +39,29 @@ fn build_ui(application: &gtk::Application) {
         let mut stdout = BufReader::new(stdout.as_mut().unwrap());
 
         loop {
-            stdout.read_line(&mut tmp).unwrap();
+            stdout
+                .read_line(&mut tmp)
+                .expect("Error reading message from eltrafico_tc");
             if tmp.is_empty() || tmp.trim() == "Stop" {
-                tx_c.send(UpdateGuiMessage::Stop).unwrap();
+                tx_c.send(UpdateGuiMessage::Stop)
+                    .expect("Error sending msg to gui thread");
             } else {
                 tx_c.send(UpdateGuiMessage::ProgramEntry(tmp.trim().to_string()))
-                    .unwrap();
+                    .expect("Error sending msg to gui thread");
             }
             tmp.clear();
         }
     });
+
+    // If nethogs is installed on the system
+    // spawn nethogs thread
+    if check_for_dependencies(&["nethogs"]).is_ok() {
+        thread::spawn(|| {
+            if let Err(e) = nethogs(tx) {
+                panic!("Nethogs error: {}", e);
+            }
+        });
+    }
 
     // ui build
     let window = gtk::ApplicationWindow::new(application);
@@ -89,11 +92,12 @@ fn build_ui(application: &gtk::Application) {
         // stop nethogs
         let pid = String::from_utf8(run!("pidof nethogs").unwrap().stdout).unwrap();
         if !pid.is_empty() {
-            run!("pkexec pkill nethogs").unwrap();
+            run!("pkexec pkill nethogs").expect("Error stopping nethogs");
         }
         // stop tc thread
         // tc will send a STOP msg back to the main thread so it can exit
-        writeln!(stdin_c.borrow_mut().as_mut().unwrap(), "{}", Message::Stop).unwrap();
+        writeln!(stdin_c.borrow_mut().as_mut().unwrap(), "{}", Message::Stop)
+            .expect("Error sending Stop message to eltrafico_tc");
         Inhibit(true)
     });
 
@@ -115,7 +119,10 @@ fn build_ui(application: &gtk::Application) {
             UpdateGuiMessage::ProgramEntry(program) => {
                 if !program.is_empty() {
                     let stdin = stdin.clone();
-                    let program = program.split("ProgramEntry: ").nth(1).unwrap();
+                    let program = program
+                        .split("ProgramEntry: ")
+                        .nth(1)
+                        .unwrap_or_else(|| panic!("Malformated message: {}", program));
                     let app_bar = create_row(Some(&program), stdin, false);
                     app_box.add(&app_bar);
                     app_box.show_all();

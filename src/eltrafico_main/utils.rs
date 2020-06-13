@@ -92,23 +92,24 @@ enum Status {
     Down,
 }
 
-pub fn finde_eltrafico_tc() -> String {
-    if check_for_dependencies(&["eltrafico_tc"]).is_err() {
-        const ERR_MSG: &str =
-            "Could not find eltrafico_tc, you can specify its path with --eltrafico-tc";
-        let args: Vec<String> = std::env::args().collect();
-        let pos = args
-            .iter()
-            .position(|a| a.as_str() == "--eltrafico-tc")
-            .expect(ERR_MSG);
-        let path = args.get(pos + 1).expect(ERR_MSG);
+pub fn find_eltrafico_tc() -> CatchAll<String> {
+    // look for a specified custom path
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(pos) = args.iter().position(|a| a.as_str() == "--eltrafico-tc") {
+        let path = args.get(pos + 1).expect("Invalid eltrafico_tc path");
         //pkexec require absolute path
-        let path = std::path::Path::new(path).canonicalize().unwrap();
+        let path = std::path::Path::new(path).canonicalize()?;
         if !path.exists() {
             panic!("Can't find {:?}", path);
         }
-        path.to_str().unwrap().to_string()
+        Ok(path
+            .to_str()
+            .ok_or("Invalid eltrafico_tc path")
+            .map(ToString::to_string)?)
+    // look in $PATH
+    } else if check_for_dependencies(&["eltrafico_tc"]).is_ok() {
+        Ok("eltrafico_tc".into())
     } else {
-        "eltrafico_tc".into()
+        Err("Could not find eltrafico_tc in $PATH, you can sepecify a its location with --eltrafico-tc flag".into())
     }
 }

@@ -31,7 +31,7 @@ pub fn run(v: String) -> CatchAll<Output> {
 
 #[test]
 fn tifconfig() {
-    dbg!(ifconfig());
+    dbg!(ifconfig().unwrap());
 }
 // ifconfig
 pub fn ifconfig() -> CatchAll<Vec<Interface>> {
@@ -87,7 +87,7 @@ enum Status {
 // ss
 #[test]
 fn tss() {
-    dbg!(ss());
+    dbg!(ss().unwrap());
 }
 
 pub fn ss() -> CatchAll<HashMap<String, Vec<Connection>>> {

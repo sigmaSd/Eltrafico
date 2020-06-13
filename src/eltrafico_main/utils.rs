@@ -45,7 +45,7 @@ pub fn check_for_dependencies(dependencies: &[&str]) -> Result<(), String> {
 
 #[test]
 fn tifconfig() {
-    dbg!(ifconfig());
+    dbg!(ifconfig().unwrap());
 }
 // ifconfig
 pub fn ifconfig() -> CatchAll<Vec<Interface>> {

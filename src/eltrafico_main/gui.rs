@@ -1,5 +1,6 @@
 mod widget_builder;
 use crate::nethogs::nethogs;
+use crate::run;
 use crate::utils::check_for_dependencies;
 use crate::utils::finde_eltrafico_tc;
 use gio::prelude::*;
@@ -61,6 +62,7 @@ fn build_ui(application: &gtk::Application) {
 
     // ui build
     let window = gtk::ApplicationWindow::new(application);
+
     window.set_title("ElTrafico");
     window.set_border_width(10);
     window.set_position(gtk::WindowPosition::Center);
@@ -85,13 +87,10 @@ fn build_ui(application: &gtk::Application) {
     let stdin_c = stdin.clone();
     window.connect_delete_event(move |_, _| {
         // stop nethogs
-        Command::new("pkexec")
-            .arg("pkill")
-            .arg("nethogs")
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+        let pid = String::from_utf8(run!("pidof nethogs").unwrap().stdout).unwrap();
+        if !pid.is_empty() {
+            run!("pkexec pkill nethogs").unwrap();
+        }
         // stop tc thread
         // tc will send a STOP msg back to the main thread so it can exit
         writeln!(stdin_c.borrow_mut().as_mut().unwrap(), "{}", Message::Stop).unwrap();

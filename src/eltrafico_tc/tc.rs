@@ -201,7 +201,7 @@ fn activate_interface(name: &str) -> crate::CatchAll<()> {
 
 #[test]
 fn clean() {
-    clean_up("ifb0", "wlp3s0");
+    clean_up("ifb0", "wlp3s0").unwrap();
 }
 
 pub fn clean_up(ingress_interface: &str, egress_interface: &str) -> crate::CatchAll<()> {
@@ -310,5 +310,5 @@ pub fn tc_remove_u32_filter(
 
 #[test]
 fn trun() {
-    dbg!(run!("lsof -i -n"));
+    dbg!(run!("lsof -i -n").unwrap());
 }

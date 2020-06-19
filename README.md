@@ -47,12 +47,15 @@ Works on my pc (TM)
 
 ## Dependencies
  - `iproute2`
- - `ifconfig`
  
  **optional:**
  - [nethogs](https://github.com/raboof/nethogs)
 
+## Binary Releases
+- Automatic releases by github actions are uploaded here https://github.com/sigmaSd/eltrafico/releases
+
 ## Installation
+ - needs gtk-dev: https://gtk-rs.org/docs/requirements.html
  - cargo install eltrafico
  
 ## Building/Dev

@@ -1,3 +1,6 @@
+**2.1.1**
+- Parse `/proc/net/dev` manually instead of using `ifconfig` because of portability issues
+
 **2.1.0**
 - Add prcedence to --eltrafico-tc over $PATH
 - Check if nethogs is running before using pkill

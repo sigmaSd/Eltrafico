@@ -9,7 +9,7 @@ deploy:
   file: ["target/release/eltrafico", "target/release/eltrafico_tc"]
   skip_cleanup: true
   on:
-    repo: sigmaSd/Eltrafico
+    tags: true
 
 script:
 - sudo apt-get install libgtk-3-dev

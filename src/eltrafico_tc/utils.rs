@@ -35,35 +35,18 @@ fn tifconfig() {
 }
 // ifconfig
 pub fn ifconfig() -> CatchAll<Vec<Interface>> {
-    let output = run!("ifconfig -a")?;
-    let output = String::from_utf8(output.stdout)?;
+    let raw_data = std::fs::read_to_string("/proc/net/dev")?;
 
-    // get the first line of each paragraph of the output then parse it
-    let output: Vec<&str> = output.lines().collect();
-    let interfaces = output
-        // split by paragraph
-        .split(|l| l.is_empty())
-        // get the first line of each paragraph
-        .filter_map(|p| p.iter().next())
-        // parse the interface name and status
-        .filter_map(|row| {
-            let status = if row.contains("UP") {
-                Status::Up
-            } else {
-                Status::Down
-            };
-            let name = match row.split(':').next() {
-                Some(name) => name,
-                None => return None,
-            };
-            Some(Interface {
-                name: name.to_string(),
-                status,
-            })
-        })
-        .collect();
-
-    Ok(interfaces)
+    //TODO: actually parse statue
+    raw_data
+        .lines()
+        .skip(2)
+        .filter_map(|l| l.split(':').next())
+        .map(|name| Ok(Interface {
+            name: name.trim().to_string(),
+            status: Status::Down,
+        }))
+        .collect()
 }
 
 #[derive(PartialEq, Eq, Debug)]

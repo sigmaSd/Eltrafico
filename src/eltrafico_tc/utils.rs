@@ -42,10 +42,12 @@ pub fn ifconfig() -> CatchAll<Vec<Interface>> {
         .lines()
         .skip(2)
         .filter_map(|l| l.split(':').next())
-        .map(|name| Ok(Interface {
-            name: name.trim().to_string(),
-            status: Status::Down,
-        }))
+        .map(|name| {
+            Ok(Interface {
+                name: name.trim().to_string(),
+                status: Status::Down,
+            })
+        })
         .collect()
 }
 

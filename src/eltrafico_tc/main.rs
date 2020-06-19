@@ -300,6 +300,6 @@ impl From<String> for Message {
                 msg => panic!("Uknown msg recieved: {}", msg),
             }
         };
-        parse().expect(&format!("Malformated message: {}", msg))
+        parse().unwrap_or_else(|| panic!("Malformated message: {}", msg))
     }
 }

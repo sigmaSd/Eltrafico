@@ -83,11 +83,8 @@ jobs:
     - name: Build archive
       shell: bash
       run: |
-       mkdir "eltrafico"
-       cp "target/release/eltrafico" "./eltrafico"
-       cp "target/release/eltrafico_tc" "./eltrafico"
-       tar czf "eltrafico.tar.gz" "eltrafico"
-       echo "::set-env name=ASSET::eltrafico.tar.gz"
+       tar cf "eltrafico.tar" "target/release/eltrafico" "target/release/eltrafico_tc"
+       echo "::set-env name=ASSET::eltrafico.tar"
 
 
     - name: Upload release archive

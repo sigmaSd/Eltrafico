@@ -85,6 +85,12 @@ fn build_ui(application: &gtk::Application) {
         if !pid.is_empty() {
             run!("pkexec pkill nethogs").expect("Error stopping nethogs");
         }
+        // stop bandwhich
+        let pid = String::from_utf8(run!("pidof bandwhich").unwrap().stdout).unwrap();
+        if !pid.is_empty() {
+            run!("pkexec pkill bandwhich").expect("Error stopping bandwhich");
+        }
+
         // stop tc thread
         // tc will send a STOP msg back to the main thread so it can exit
         writeln!(stdin_c.borrow_mut().as_mut().unwrap(), "{}", Message::Stop)

@@ -10,7 +10,12 @@ use std::rc::Rc;
 type SharedStdinHandle = Rc<RefCell<Option<std::process::ChildStdin>>>;
 
 pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> Box {
-    let title = Label::new(name);
+    //TODO switch to a gtk::grid
+    let name = name.unwrap_or("?");
+    let name = format!("<b>{}</b>", name);
+    let title = Label::new(None);
+    title.set_markup(&name);
+
     let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));
     let down_value = Entry::new();
@@ -23,7 +28,6 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
 
     let d_c = down_value.clone();
     let u_c = up_value.clone();
-    let name = name.unwrap_or("?").to_string();
 
     // send the program name and its limits to the limiter thread
     set_btn.connect_clicked(move |btn| {
@@ -64,7 +68,8 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
 
     let hbox = Box::new(Orientation::Horizontal, 20);
     // TODO: make the label fixed size
-    hbox.pack_start(&title, true, false, 10);
+    hbox.pack_start(&title, false, false, 10);
+
     hbox.add(&current_speed);
     hbox.add(&down);
     hbox.add(&down_value);

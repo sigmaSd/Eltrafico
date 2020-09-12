@@ -73,7 +73,7 @@ pub struct Interface {
 
 #[derive(PartialEq, Eq, Debug)]
 enum Status {
-    Up,
+    _Up,
     Down,
 }
 

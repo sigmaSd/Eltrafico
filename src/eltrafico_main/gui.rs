@@ -1,7 +1,6 @@
 mod widget_builder;
-use crate::nethogs::nethogs;
+use crate::netmonitor::netmonitor;
 use crate::run;
-use crate::utils::check_for_dependencies;
 use crate::utils::find_eltrafico_tc;
 use gio::prelude::*;
 use gtk::*;
@@ -11,7 +10,6 @@ use std::io::Write;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::rc::Rc;
-use std::thread;
 use widget_builder::*;
 
 fn build_ui(application: &gtk::Application) {
@@ -53,15 +51,8 @@ fn build_ui(application: &gtk::Application) {
         }
     });
 
-    // If nethogs is installed on the system
-    // spawn nethogs thread
-    if check_for_dependencies(&["nethogs"]).is_ok() {
-        thread::spawn(|| {
-            if let Err(e) = nethogs(tx) {
-                panic!("Nethogs error: {}", e);
-            }
-        });
-    }
+    // start the netmonitor thread
+    netmonitor(tx).expect("Error starting the netmonitor thread");
 
     // ui build
     let window = gtk::ApplicationWindow::new(application);

@@ -85,7 +85,7 @@ pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<Strin
         let speed: gtk::Label = program[1].clone().downcast().unwrap();
         if programs_speed.contains_key(&name) {
             speed.set_label(&format!(
-                "Down: {} KB/sec Up: {} KB/sec",
+                "Down: {:.2} KB/sec Up: {:.2} KB/sec",
                 programs_speed[&name].1, programs_speed[&name].0
             ));
         } else {
@@ -100,7 +100,7 @@ pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<Strin
 pub fn update_gui_global_speed(global_bar: gtk::Box, global_speed: (f32, f32)) {
     let speed: gtk::Label = global_bar.get_children()[1].clone().downcast().unwrap();
     speed.set_label(&format!(
-        "Down: {} KB/sec Up: {} KB/sec",
+        "Down: {:.2} KB/sec Up: {:.2} KB/sec",
         global_speed.1, global_speed.0
     ));
 }

@@ -16,17 +16,6 @@ pub fn nethogs(tx: Sender<UpdateGuiMessage>) -> CatchAll<()> {
         .stdout
         .as_mut()
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Err while reading nethogs output"))?;
-    // use std::io::Read;
-    // let stderr = cmd
-    //     .stderr
-    //     .as_mut()
-    //     .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Err while reading nethogs output"))?;
-    //
-    // let mut err = String::new();
-    // stderr.read_to_string(&mut err)?;
-    // if !err.is_empty() {
-    //     return Err(err).map_err(|e| e.into());
-    // }
 
     let mut stdout = std::io::BufReader::new(stdout);
     let mut raw_output = String::new();

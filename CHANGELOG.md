@@ -1,3 +1,7 @@
+**2.2.1**
+- Add [bandwhich](https://github.com/imsnif/bandwhich) as a netmonitoring backend
+- UI improvement (float precision = 2 for download/upload)
+
 **2.1.1**
 - Parse `/proc/net/dev` manually instead of using `ifconfig` because of portability issues
 

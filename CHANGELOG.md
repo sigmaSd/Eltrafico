@@ -1,3 +1,6 @@
+**2.2.2**
+- Update dependencies
+
 **2.2.1**
 - Add [bandwhich](https://github.com/imsnif/bandwhich) as a netmonitoring backend
 - UI improvement (float precision = 2 for download/upload)

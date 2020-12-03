@@ -11,10 +11,10 @@ type SharedStdinHandle = Rc<RefCell<Option<std::process::ChildStdin>>>;
 
 pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> Box {
     //TODO switch to a gtk::grid
-    let name = name.unwrap_or("?");
-    let name = format!("<b>{}</b>", name);
+    let name = name.unwrap_or("?").to_string();
+    let print_name = format!("<b>{}</b>", &name);
     let title = Label::new(None);
-    title.set_markup(&name);
+    title.set_markup(&print_name);
 
     let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));

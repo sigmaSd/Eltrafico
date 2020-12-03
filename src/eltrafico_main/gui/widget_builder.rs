@@ -24,16 +24,16 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     let up_value = Entry::new();
     up_value.set_placeholder_text(Some("None"));
 
-    let set_btn = Button::new_with_label("Set");
+    let set_btn = Button::with_label("Set");
 
     let d_c = down_value.clone();
     let u_c = up_value.clone();
 
     // send the program name and its limits to the limiter thread
     set_btn.connect_clicked(move |btn| {
-        let down = d_c.get_text().unwrap().to_string();
+        let down = d_c.get_text().to_string();
         let down = if down.is_empty() { None } else { Some(down) };
-        let up = u_c.get_text().unwrap().to_string();
+        let up = u_c.get_text().to_string();
         let up = if up.is_empty() { None } else { Some(up) };
 
         if global {
@@ -86,7 +86,7 @@ pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<Strin
         let program: gtk::Box = program.clone().downcast().unwrap();
         let program = program.get_children();
         let name: gtk::Label = program[0].clone().downcast().unwrap();
-        let name = name.get_text().unwrap().to_string();
+        let name = name.get_text().to_string();
         let speed: gtk::Label = program[1].clone().downcast().unwrap();
         if programs_speed.contains_key(&name) {
             speed.set_label(&format!(

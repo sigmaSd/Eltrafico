@@ -1,3 +1,6 @@
+**2.2.3**
+- Fix a bug where limits werent applied
+
 **2.2.2**
 - Update dependencies
 

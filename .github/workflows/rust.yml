@@ -15,7 +15,7 @@ jobs:
       - name: Get the release version from the tag
         if: env.ELTRAFICO_VERSION == ''
         run: |
-          echo "::set-env name=ELTRAFICO_VERSION::${GITHUB_REF#refs/tags/}"
+          echo "ELTRAFICO_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
           echo "version is: ${{ env.ELTRAFICO_VERSION }}"
 
       - name: Create GitHub release
@@ -68,7 +68,7 @@ jobs:
       shell: bash
       run: |
         release_upload_url="$(cat artifacts/release-upload-url)"
-        echo "::set-env name=RELEASE_UPLOAD_URL::$release_upload_url"
+        echo "RELEASE_UPLOAD_URL=$release_upload_url" >> $GITHUB_ENV
         echo "release upload url: $RELEASE_UPLOAD_URL"
       
     - name: Donwload gtk dependencies
@@ -84,8 +84,7 @@ jobs:
       shell: bash
       run: |
        tar cf "eltrafico.tar" "target/release/eltrafico" "target/release/eltrafico_tc"
-       echo "::set-env name=ASSET::eltrafico.tar"
-
+       echo "ASSET=$eltrafico.tar" >> $GITHUB_ENV
 
     - name: Upload release archive
       uses: actions/upload-release-asset@v1.0.1

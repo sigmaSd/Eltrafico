@@ -84,7 +84,7 @@ jobs:
       shell: bash
       run: |
        tar cf "eltrafico.tar" "target/release/eltrafico" "target/release/eltrafico_tc"
-       echo "ASSET=$eltrafico.tar" >> $GITHUB_ENV
+       echo "ASSET=eltrafico.tar" >> $GITHUB_ENV
 
     - name: Upload release archive
       uses: actions/upload-release-asset@v1.0.1

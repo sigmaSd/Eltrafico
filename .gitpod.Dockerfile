@@ -1,6 +1,5 @@
-FROM ubuntu:devel
+FROM ubuntu:focal
 
-COPY install-packages /usr/bin
 
 ### base ###
 ARG DEBIAN_FRONTEND=noninteractive

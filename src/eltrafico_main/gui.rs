@@ -134,8 +134,16 @@ fn build_ui(application: &gtk::Application) {
 }
 
 pub fn run() {
-    let application = gtk::Application::new(Some("com.github.eltrfico"), Default::default());
+    let application = gtk::Application::new(
+        Some("com.sigmasd.eltrfico"),
+        gio::ApplicationFlags::HANDLES_COMMAND_LINE,
+    );
 
+    // Don't let gtk handle cmd arguments
+    application.connect_command_line(|app, _appcmd| {
+        build_ui(app);
+        0
+    });
     application.connect_activate(|app| {
         build_ui(app);
     });

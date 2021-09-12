@@ -1,8 +1,8 @@
 use super::Message;
 use crate::utils::ifconfig;
 use glib::object::Cast;
-use gtk::*;
 use gtk::prelude::*;
+use gtk::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Write;

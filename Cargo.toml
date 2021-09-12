@@ -18,6 +18,6 @@ name = "eltrafico_tc"
 path = "src/eltrafico_tc/main.rs"
 
 [dependencies]
-gtk = "0.14.1"
+gtk4 = "0.2.0"
 glib = "0.14.5"
 gio = "0.14.5"

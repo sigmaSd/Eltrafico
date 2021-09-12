@@ -1,3 +1,7 @@
+**2.2.4**
+- Update dependencies
+- Fix command line argument handling
+
 **2.2.3**
 - Fix a bug where limits werent applied
 

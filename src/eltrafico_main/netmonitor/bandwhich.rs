@@ -81,10 +81,10 @@ pub struct ProgramCurrentSpeed {
 
 #[test]
 fn t_bandwhich() {
-    gtk::init();
+    gtk::init().unwrap();
 
     let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-    bandwhich(tx);
+    bandwhich(tx).unwrap();
 
     rx.attach(None, move |message| {
         dbg!(message);

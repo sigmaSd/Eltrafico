@@ -3,6 +3,7 @@ use crate::netmonitor::netmonitor;
 use crate::run;
 use crate::utils::find_eltrafico_tc;
 use gio::prelude::*;
+use gtk::prelude::*;
 use gtk::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -69,7 +70,7 @@ fn build_ui(application: &gtk::Application) {
 
     // make the app box vertically scrollable
     let scrolled_box: ScrolledWindow = ScrolledWindow::new::<Adjustment, Adjustment>(None, None);
-    scrolled_box.set_property_hscrollbar_policy(PolicyType::Never);
+    scrolled_box.set_hscrollbar_policy(PolicyType::Never);
     scrolled_box.add(&app_box);
 
     main_box.add(&interface_row);
@@ -120,7 +121,7 @@ fn build_ui(application: &gtk::Application) {
                         .split("ProgramEntry: ")
                         .nth(1)
                         .unwrap_or_else(|| panic!("Malformated message: {}", program));
-                    let app_bar = create_row(Some(&program), stdin, false);
+                    let app_bar = create_row(Some(program), stdin, false);
                     app_box.add(&app_bar);
                     app_box.show_all();
                 }
@@ -133,14 +134,13 @@ fn build_ui(application: &gtk::Application) {
 }
 
 pub fn run() {
-    let application = gtk::Application::new(Some("com.github.eltrfico"), Default::default())
-        .expect("Initialization failed...");
+    let application = gtk::Application::new(Some("com.github.eltrfico"), Default::default());
 
     application.connect_activate(|app| {
         build_ui(app);
     });
 
-    application.run(&[]);
+    application.run();
 }
 
 #[derive(PartialEq)]

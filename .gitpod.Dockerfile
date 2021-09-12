@@ -1,7 +1,6 @@
 FROM ubuntu:devel
 
 RUN apt-get install gpgv
-RUN apt-get install gpgv1
 RUN apt-get install gpgv2
 
 RUN apt-get update

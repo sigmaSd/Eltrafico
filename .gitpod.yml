@@ -1,1 +1,2 @@
-image: ubuntu:rolling
+image:
+  file: .gitpod.Dockerfile

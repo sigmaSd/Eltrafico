@@ -19,7 +19,7 @@ Choose the correct interface, and eltrafico will monitor it for active connectio
 
 Active program will automatically show up
 
-Choose your limits then confirm with set button
+Choose your limits then activate it by toggling the corresponding checkbox on.
 
 If [bandwhich](https://github.com/imsnif/bandwhich) or [nethogs](https://github.com/raboof/nethogs) is installed on your system, `eltrafico` will use it automatically to show programs live network usage
 

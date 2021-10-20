@@ -1,5 +1,6 @@
 use super::Message;
 use crate::utils::ifconfig;
+use glib::clone;
 use glib::object::Cast;
 use gtk::prelude::*;
 use gtk::*;
@@ -10,6 +11,18 @@ use std::rc::Rc;
 
 type SharedStdinHandle = Rc<RefCell<Option<std::process::ChildStdin>>>;
 
+fn create_unit_widget() -> ComboBoxText {
+    let unit = ComboBoxText::new();
+    unit.append(None, "Bps");
+    unit.append(None, "Kbps");
+    unit.append(None, "Mbps");
+    unit.set_active(Some(1));
+    unit
+}
+fn get_unit(widget: &ComboBoxText) -> String {
+    widget.active_text().unwrap().to_string()
+}
+
 pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> Box {
     //TODO switch to a gtk::grid
     let name = name.unwrap_or("?").to_string();
@@ -19,23 +32,30 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
 
     let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));
-    let down_value = Entry::new();
-    down_value.set_placeholder_text(Some("None"));
+    let down_value = SpinButton::with_range(0., f64::MAX, 10.);
+    let down_unit = create_unit_widget();
     let up = Label::new(Some("Up: "));
-    let up_value = Entry::new();
+    let up_value = SpinButton::with_range(0., f64::MAX, 10.);
+    let up_unit = create_unit_widget();
     up_value.set_placeholder_text(Some("None"));
 
-    let set_btn = Button::with_label("Set");
-
-    let d_c = down_value.clone();
-    let u_c = up_value.clone();
+    let set_btn = CheckButton::new();
 
     // send the program name and its limits to the limiter thread
-    set_btn.connect_clicked(move |btn| {
-        let down = d_c.text().to_string();
-        let down = if down.is_empty() { None } else { Some(down) };
-        let up = u_c.text().to_string();
-        let up = if up.is_empty() { None } else { Some(up) };
+    set_btn.connect_toggled(clone!(@strong down_value, @strong up_value, @strong down_unit, @strong up_unit => move |btn| {
+        let (up, down) = if btn.is_active() {
+            let down = {
+                let val = down_value.text().to_string();
+                Some(val + &get_unit(&down_unit))
+            };
+            let up = {
+                let val = up_value.text().to_string();
+                Some(val + &get_unit(&up_unit))
+            };
+            (up,down)
+        } else {
+            (None,None)
+        };
 
         if global {
             writeln!(
@@ -53,19 +73,21 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
             .expect("Error sending Program limit to eltrafico_tc");
         }
 
-        // visual feedback
-        btn.set_label("Ok!");
-    });
+    }));
 
-    // visual feedback
-    let set_btn_c = set_btn.clone();
-    down_value.connect_changed(move |_| {
-        set_btn_c.set_label("Set");
-    });
-    let set_btn_c = set_btn.clone();
-    up_value.connect_changed(move |_| {
-        set_btn_c.set_label("Set");
-    });
+    // Disable limit on variables changes
+    down_value.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
+    up_value.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
+    down_unit.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
+    up_unit.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
 
     let hbox = Box::new(Orientation::Horizontal, 20);
     // TODO: make the label fixed size
@@ -74,8 +96,11 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     hbox.add(&current_speed);
     hbox.add(&down);
     hbox.add(&down_value);
+    hbox.add(&down_unit);
     hbox.add(&up);
     hbox.add(&up_value);
+    hbox.add(&up_unit);
+    hbox.add(&Label::new(Some("Active:")));
     hbox.add(&set_btn);
 
     hbox

@@ -1,3 +1,6 @@
+**2.3.0**
+- Ui improvements
+
 **2.2.4**
 - Update dependencies
 - Fix command line argument handling

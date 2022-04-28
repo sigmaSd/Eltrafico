@@ -1,3 +1,7 @@
+**2.3.1**
+- Default to a working limits
+- Fix a couple of warnings 
+
 **2.3.0**
 - Ui improvements
 

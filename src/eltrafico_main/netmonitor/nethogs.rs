@@ -79,10 +79,3 @@ fn parse_data(raw_output: &str) -> HashMap<String, (f32, f32)> {
         })
         .collect()
 }
-
-#[derive(Debug)]
-pub struct ProgramCurrentSpeed {
-    name: String,
-    up: f32,
-    down: f32,
-}

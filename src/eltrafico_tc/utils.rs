@@ -113,10 +113,10 @@ pub fn ss() -> CatchAll<HashMap<String, Vec<Connection>>> {
 
 #[derive(Debug)]
 pub struct Connection {
-    laddr: String,
+    pub laddr: String,
     pub lport: String,
-    raddr: String,
-    rport: String,
+    pub raddr: String,
+    pub rport: String,
 }
 
 impl Connection {

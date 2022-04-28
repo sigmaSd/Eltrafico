@@ -33,9 +33,13 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));
     let down_value = SpinButton::with_range(0., f64::MAX, 10.);
+    // better default to a working amount
+    down_value.set_value(100.);
     let down_unit = create_unit_widget();
     let up = Label::new(Some("Up: "));
     let up_value = SpinButton::with_range(0., f64::MAX, 10.);
+    // better default to a working amount
+    up_value.set_value(100.);
     let up_unit = create_unit_widget();
     up_value.set_placeholder_text(Some("None"));
 

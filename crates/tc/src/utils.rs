@@ -6,16 +6,17 @@ use std::process::{Command, Output};
 macro_rules! run {
 // run macro
     ($($arg:tt)*) => {{
-        let out = $crate::run_output!($($arg)*);
+        let out = $crate::run_out!($($arg)*);
         out.map(|_|())
     }}
 }
 
 #[macro_export]
-macro_rules! run_output {
-    ($($arg:tt)*) => {
-        $crate::utils::run(format!($($arg)*))
-    }
+macro_rules! run_out {
+    ($($arg:tt)*) => {{
+        let out = $crate::utils::run(format!($($arg)*));
+        out.map(|v|String::from_utf8(v.stdout))
+    }}
 }
 
 pub fn run(v: String) -> Result<Output> {
@@ -84,8 +85,7 @@ fn tss() {
 }
 
 pub fn ss() -> Result<HashMap<String, Vec<Connection>>> {
-    let raw_net_table = run_output!("ss -n -t -p  state established")
-        .map(|out| String::from_utf8(out.stdout))??;
+    let raw_net_table = run_out!("ss -n -t -p  state established")??;
 
     let mut net_table = HashMap::new();
 

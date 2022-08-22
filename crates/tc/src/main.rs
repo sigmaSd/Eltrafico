@@ -112,8 +112,6 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                     )?;
                 }
                 Message::Program((name, (down, up))) => {
-                    let down = down.map(|v| v.parse().unwrap());
-                    let up = up.map(|v| v.parse().unwrap());
                     let ingress_class_id = if let Some(down) = down {
                         Some(tc::tc_add_htb_class(&root_ingress, Some(down), None, None)?)
                     } else {

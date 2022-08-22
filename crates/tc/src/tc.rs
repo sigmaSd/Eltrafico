@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::utils::ifconfig;
-use crate::{run, run_output, Result};
+use crate::{run, run_out, Result};
 
 const MIN_RATE: &str = "8";
 
@@ -74,8 +74,7 @@ fn find_free_ids(ids: impl Iterator<Item = usize>) -> usize {
 }
 
 fn get_free_qdisc_id(device: &str) -> Result<usize> {
-    let output =
-        run_output!("tc qdisc show dev {device}").map(|out| String::from_utf8(out.stdout))??;
+    let output = run_out!("tc qdisc show dev {device}")??;
 
     let mut ids: Vec<usize> = vec![];
     for line in output.lines() {
@@ -101,8 +100,7 @@ fn get_free_qdisc_id(device: &str) -> Result<usize> {
 }
 
 fn get_free_class_id(interface: &str, qdisc_id: usize) -> crate::Result<usize> {
-    let output = run_output!("tc class show dev {}", interface)
-        .map(|out| String::from_utf8(out.stdout))??;
+    let output = run_out!("tc class show dev {}", interface)??;
     let mut ids: Vec<usize> = vec![];
     for line in output.lines() {
         if !line.starts_with("class") {
@@ -123,12 +121,6 @@ fn get_free_class_id(interface: &str, qdisc_id: usize) -> crate::Result<usize> {
     }
     Ok(find_free_ids(ids.into_iter()))
 }
-
-//fn clean_up(ingress_interface: String, egress_interface: String) -> crate::CatchAll<()> {
-
-// tc_remove_qdisc(ingress_interface, None)?;
-// tc_remove_qdisc(egress_interface, None)?;
-// tc_remove_qdisc(egress_interface, Some(INGRESS_QDISC_PARENT_ID))?;
 
 pub fn tc_setup(
     device: String,
@@ -232,8 +224,7 @@ pub fn tc_add_htb_class(
 }
 
 fn get_filter_ids(device: &str) -> Result<HashSet<String>> {
-    let output =
-        run_output!("tc filter show dev {}", device).map(|out| String::from_utf8(out.stdout))??;
+    let output = run_out!("tc filter show dev {}", device)??;
 
     let mut ids = HashSet::new();
     for line in output.lines() {

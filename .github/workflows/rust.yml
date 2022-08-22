@@ -78,11 +78,13 @@ jobs:
         
     - name: Build release binary
       run: |
-        cargo build --bins --release
+        cargo build --release
 
     - name: Build archive
       shell: bash
       run: |
+       cp "target/release/gui" "target/release/eltrafico"
+       cp "target/release/tc" "target/release/eltrafico_tc"
        tar cf "eltrafico.tar" "target/release/eltrafico" "target/release/eltrafico_tc"
        echo "ASSET=eltrafico.tar" >> $GITHUB_ENV
 

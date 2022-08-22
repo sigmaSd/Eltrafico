@@ -2,13 +2,16 @@ mod tc;
 mod utils;
 use crate::tc::*;
 use crate::utils::ss;
+use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
-pub type CatchAll<T> = Result<T, Box<dyn std::error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
     let args: Vec<String> = std::env::args().collect();
     if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
         //TODO helpful message
@@ -17,7 +20,7 @@ fn main() {
     limit(Some(2), io::stdout(), io::stdin()).unwrap();
 }
 
-pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::CatchAll<()> {
+pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::Result<()> {
     use TrafficType::*;
 
     let mut program_to_trafficid_map = HashMap::new();
@@ -47,9 +50,13 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
     };
 
     let (mut root_ingress, mut root_egress) = tc_setup(
-        &current_interface,
+        current_interface.clone(),
         global_limit_record.0.clone(),
+        None,
         global_limit_record.1.clone(),
+        None,
+        None,
+        None,
     )?;
 
     let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
@@ -79,7 +86,7 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
         if !msg.is_empty() {
             match Message::from(msg) {
                 Message::Interface(name) => {
-                    tc::clean_up(&root_ingress.interface, &current_interface)?;
+                    clean_up(&root_ingress.device, &current_interface)?;
 
                     current_interface = name;
                     reset_tc(
@@ -91,7 +98,7 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                     )?;
                 }
                 Message::Global(limit) => {
-                    tc::clean_up(&root_ingress.interface, &current_interface)?;
+                    clean_up(&root_ingress.device, &current_interface)?;
 
                     // save new values
                     global_limit_record = limit;
@@ -105,14 +112,16 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                     )?;
                 }
                 Message::Program((name, (down, up))) => {
+                    let down = down.map(|v| v.parse().unwrap());
+                    let up = up.map(|v| v.parse().unwrap());
                     let ingress_class_id = if let Some(down) = down {
-                        Some(tc::tc_add_htb_class(&root_ingress, &down)?)
+                        Some(tc::tc_add_htb_class(&root_ingress, Some(down), None, None)?)
                     } else {
                         None
                     };
 
                     let egress_class_id = if let Some(up) = up {
-                        Some(tc::tc_add_htb_class(&root_egress, &up)?)
+                        Some(tc::tc_add_htb_class(&root_egress, Some(up), None, None)?)
                     } else {
                         None
                     };
@@ -121,7 +130,7 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                         .insert(name.clone(), (ingress_class_id, egress_class_id));
                 }
                 Message::Stop => {
-                    tc::clean_up(&root_ingress.interface, &current_interface)?;
+                    clean_up(&root_ingress.device, &current_interface)?;
                     writeln!(tx, "Stop")?;
                     break Ok(());
                 }
@@ -161,10 +170,9 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                             .insert(ingress_port.clone(), filtered_ports[&ingress_port].clone());
                         continue;
                     } else {
-                        let ingress_filter_id = tc::add_ingress_filter(
-                            &con.lport,
-                            &root_ingress.interface,
-                            root_ingress.qdisc_id,
+                        let ingress_filter_id = add_ingress_filter(
+                            con.lport.parse().unwrap(),
+                            &root_ingress,
                             ingress_class_id,
                         )?;
                         active_ports.insert(ingress_port, ingress_filter_id);
@@ -179,10 +187,9 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                             .insert(egress_port.clone(), filtered_ports[&egress_port].clone());
                         continue;
                     } else {
-                        let egress_filter_id = tc::add_egress_filter(
-                            &con.lport,
-                            &root_egress.interface,
-                            root_egress.qdisc_id,
+                        let egress_filter_id = add_egress_filter(
+                            con.lport.parse().unwrap(),
+                            &root_egress,
                             egress_class_id,
                         )?;
                         active_ports.insert(egress_port, egress_filter_id);
@@ -196,18 +203,10 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
             if !active_ports.contains_key(&port) {
                 match port.0 {
                     Ingress => {
-                        tc::tc_remove_u32_filter(
-                            &root_ingress.interface,
-                            &filter_id,
-                            root_ingress.qdisc_id,
-                        )?;
+                        tc::tc_remove_u32_filter(&root_ingress, filter_id)?;
                     }
                     Egress => {
-                        tc::tc_remove_u32_filter(
-                            &root_egress.interface,
-                            &filter_id,
-                            root_egress.qdisc_id,
-                        )?;
+                        tc::tc_remove_u32_filter(&root_egress, filter_id)?;
                     }
                 }
             }
@@ -233,15 +232,22 @@ enum TrafficType {
 
 fn reset_tc(
     current_interface: &str,
-    ingress: &mut Traffic,
-    egress: &mut Traffic,
+    ingress: &mut QDisc,
+    egress: &mut QDisc,
     global_limit: (Option<String>, Option<String>),
     filtered_ports: &mut HashMap<(TrafficType, String), String>,
-) -> CatchAll<()> {
+) -> Result<()> {
     filtered_ports.clear();
 
-    let (new_ingress, new_egress) =
-        tc::tc_setup(current_interface, global_limit.0, global_limit.1)?;
+    let (new_ingress, new_egress) = tc::tc_setup(
+        current_interface.into(),
+        global_limit.0,
+        None,
+        global_limit.1,
+        None,
+        None,
+        None,
+    )?;
 
     *ingress = new_ingress;
     *egress = new_egress;
@@ -249,7 +255,7 @@ fn reset_tc(
     Ok(())
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum Message {
     Stop,
     Interface(String),
@@ -302,4 +308,34 @@ impl From<String> for Message {
         };
         parse().unwrap_or_else(|| panic!("Malformated message: {}", msg))
     }
+}
+
+fn clean_up(ingress_device: &str, egress_device: &str) -> Result<()> {
+    log::info!("Cleaning up QDiscs");
+    tc_remove_qdisc(ingress_device.into(), None)?;
+    tc_remove_qdisc(egress_device.into(), None)?;
+    tc_remove_qdisc(egress_device.into(), Some(INGRESS_QDISC_PARENT_ID.into()))?;
+    Ok(())
+}
+
+fn add_ingress_filter(
+    port: usize,
+    ingress_qdisc: &QDisc,
+    class_id: usize,
+) -> crate::Result<String> {
+    let filter_id = tc_add_u32_filter(
+        ingress_qdisc,
+        format!("match ip dport {port} 0xffff"),
+        class_id,
+    )?;
+    Ok(filter_id)
+}
+
+fn add_egress_filter(port: usize, egress_qdisc: &QDisc, class_id: usize) -> Result<String> {
+    let filter_id = tc_add_u32_filter(
+        egress_qdisc,
+        format!("match ip sport {port} 0xffff"),
+        class_id,
+    )?;
+    Ok(filter_id)
 }

@@ -1,16 +1,24 @@
-use crate::CatchAll;
+use crate::Result;
 use std::collections::HashMap;
 use std::process::{Command, Output};
 
-// run macro
 #[macro_export]
 macro_rules! run {
+// run macro
+    ($($arg:tt)*) => {{
+        let out = $crate::run_output!($($arg)*);
+        out.map(|_|())
+    }}
+}
+
+#[macro_export]
+macro_rules! run_output {
     ($($arg:tt)*) => {
-        crate::utils::run(format!($($arg)*))
+        $crate::utils::run(format!($($arg)*))
     }
 }
 
-pub fn run(v: String) -> CatchAll<Output> {
+pub fn run(v: String) -> Result<Output> {
     // log all cmds
     //dbg!(&v);
 
@@ -34,7 +42,7 @@ fn tifconfig() {
     dbg!(ifconfig().unwrap());
 }
 // ifconfig
-pub fn ifconfig() -> CatchAll<Vec<Interface>> {
+pub fn ifconfig() -> Result<Vec<Interface>> {
     let raw_data = std::fs::read_to_string("/proc/net/dev")?;
 
     //TODO: actually parse statue
@@ -75,9 +83,9 @@ fn tss() {
     dbg!(ss().unwrap());
 }
 
-pub fn ss() -> CatchAll<HashMap<String, Vec<Connection>>> {
-    let raw_net_table = run!("ss -n -t -p  state established")?;
-    let raw_net_table = String::from_utf8(raw_net_table.stdout)?;
+pub fn ss() -> Result<HashMap<String, Vec<Connection>>> {
+    let raw_net_table = run_output!("ss -n -t -p  state established")
+        .map(|out| String::from_utf8(out.stdout))??;
 
     let mut net_table = HashMap::new();
 

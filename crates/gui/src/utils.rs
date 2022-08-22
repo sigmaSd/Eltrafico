@@ -5,7 +5,7 @@ use std::process::{Command, Output};
 #[macro_export]
 macro_rules! run {
     ($($arg:tt)*) => {
-        crate::utils::run(format!($($arg)*))
+        $crate::utils::run(format!($($arg)*))
     }
 }
 

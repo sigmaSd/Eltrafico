@@ -151,7 +151,7 @@ pub fn run() {
     application.run();
 }
 
-#[derive(PartialEq)]
+#[derive(Eq, PartialEq)]
 pub enum Message {
     Stop,
     Interface(String),

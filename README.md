@@ -24,11 +24,11 @@ Choose your limits then activate it by toggling the corresponding checkbox on.
 If [bandwhich](https://github.com/imsnif/bandwhich) or [nethogs](https://github.com/raboof/nethogs) is installed on your system, `eltrafico` will use it automatically to show programs live network usage
 
 ## Technical details
-Eltrafico is split on 2 binaries that communicate through stdin/out:
+Eltrafico is split on 2 crates that communicate through stdin/out:
 
-1- `eltrafico`: create gui and call `bandwhich`/`nethogs` and `eltrafico_tc` as privileged process using pkexec
+1- `crates/gui`: create gui and call `bandwhich`/`nethogs` and `eltrafico_tc` as privileged process using pkexec
 
-2- `eltrafico_tc`: traffic shaping, can be controlled via stdin, for the list of commands see https://github.com/sigmaSd/Eltrafico/blob/sudo_isolation/src/eltrafico_tc/main.rs#L252 and https://github.com/sigmaSd/Eltrafico/blob/sudo_isolation/src/eltrafico_tc/main.rs#L79
+2- `crates/tc`: traffic shaping, can be controlled via stdin, for the list of commands see (TODO)https://github.com/sigmaSd/Eltrafico/blob/sudo_isolation/src/eltrafico_tc/main.rs#L252 and (TODO)https://github.com/sigmaSd/Eltrafico/blob/sudo_isolation/src/eltrafico_tc/main.rs#L79
 
 This allows to run the gui as a normal user, and ask for higher privilege only for `eltrafico_tc` and `bandwhich`/`nethogs` binaries
 

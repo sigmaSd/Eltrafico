@@ -28,7 +28,12 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
     // block till we get an initial interface
     // and while we're at it if we get a global limit msg save the values
     // also if we get stop msg quit early
-    let mut global_limit_record: (Option<String>, Option<String>) = Default::default();
+    let mut global_limit_record: (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) = Default::default();
     let mut msg = String::new();
 
     let mut current_interface = loop {
@@ -52,9 +57,9 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
     let (mut root_ingress, mut root_egress) = tc_setup(
         current_interface.clone(),
         global_limit_record.0.clone(),
-        None,
+        global_limit_record.2.clone(),
         global_limit_record.1.clone(),
-        None,
+        global_limit_record.3.clone(),
         None,
         None,
     )?;
@@ -111,15 +116,25 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                         &mut filtered_ports,
                     )?;
                 }
-                Message::Program((name, (down, up))) => {
-                    let ingress_class_id = if let Some(down) = down {
-                        Some(tc::tc_add_htb_class(&root_ingress, Some(down), None, None)?)
+                Message::Program((name, (down, up, down_min, up_min))) => {
+                    let ingress_class_id = if let (Some(down), Some(down_min)) = (down, down_min) {
+                        Some(tc::tc_add_htb_class(
+                            &root_ingress,
+                            Some(down),
+                            Some(down_min),
+                            None,
+                        )?)
                     } else {
                         None
                     };
 
-                    let egress_class_id = if let Some(up) = up {
-                        Some(tc::tc_add_htb_class(&root_egress, Some(up), None, None)?)
+                    let egress_class_id = if let (Some(up), Some(up_min)) = (up, up_min) {
+                        Some(tc::tc_add_htb_class(
+                            &root_egress,
+                            Some(up),
+                            Some(up_min),
+                            None,
+                        )?)
                     } else {
                         None
                     };
@@ -232,7 +247,12 @@ fn reset_tc(
     current_interface: &str,
     ingress: &mut QDisc,
     egress: &mut QDisc,
-    global_limit: (Option<String>, Option<String>),
+    global_limit: (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ),
     filtered_ports: &mut HashMap<(TrafficType, String), String>,
 ) -> Result<()> {
     filtered_ports.clear();
@@ -240,9 +260,9 @@ fn reset_tc(
     let (new_ingress, new_egress) = tc::tc_setup(
         current_interface.into(),
         global_limit.0,
-        None,
+        global_limit.2,
         global_limit.1,
-        None,
+        global_limit.3,
         None,
         None,
     )?;
@@ -257,8 +277,25 @@ fn reset_tc(
 pub enum Message {
     Stop,
     Interface(String),
-    Global((Option<String>, Option<String>)),
-    Program((String, (Option<String>, Option<String>))),
+    Global(
+        (
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    ),
+    Program(
+        (
+            String,
+            (
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            ),
+        ),
+    ),
 }
 
 impl From<String> for Message {
@@ -273,33 +310,49 @@ impl From<String> for Message {
                 msg if msg.starts_with("Global: ") => {
                     let msg = msg.split("Global: ").nth(1)?;
                     let mut msg = msg.split_whitespace();
-                    let mut up = msg.next().map(ToString::to_string);
                     let mut down = msg.next().map(ToString::to_string);
-
-                    if up == Some("None".into()) {
-                        up = None;
-                    }
+                    let mut up = msg.next().map(ToString::to_string);
+                    let mut down_min = msg.next().map(ToString::to_string);
+                    let mut up_min = msg.next().map(ToString::to_string);
                     if down == Some("None".into()) {
                         down = None;
                     }
+                    if up == Some("None".into()) {
+                        up = None;
+                    }
 
-                    Some(Global((up, down)))
+                    if down_min == Some("None".into()) {
+                        down_min = None;
+                    }
+
+                    if up_min == Some("None".into()) {
+                        up_min = None;
+                    }
+
+                    Some(Global((down, up, down_min, up_min)))
                 }
                 msg if msg.starts_with("Program: ") => {
                     let msg = msg.split("Program: ").nth(1)?;
                     let mut msg = msg.split_whitespace();
                     let program_name = msg.next()?.to_string();
-                    let mut up = msg.next().map(ToString::to_string);
                     let mut down = msg.next().map(ToString::to_string);
-
-                    if up == Some("None".into()) {
-                        up = None;
-                    }
+                    let mut up = msg.next().map(ToString::to_string);
+                    let mut down_min = msg.next().map(ToString::to_string);
+                    let mut up_min = msg.next().map(ToString::to_string);
                     if down == Some("None".into()) {
                         down = None;
                     }
+                    if up == Some("None".into()) {
+                        up = None;
+                    }
+                    if down_min == Some("None".into()) {
+                        down_min = None;
+                    }
+                    if up_min == Some("None".into()) {
+                        up_min = None;
+                    }
 
-                    Some(Program((program_name, (up, down))))
+                    Some(Program((program_name, (down, up, down_min, up_min))))
                 }
                 msg => panic!("Uknown msg recieved: {}", msg),
             }

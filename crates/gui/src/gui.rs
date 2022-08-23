@@ -156,7 +156,17 @@ pub enum Message {
     Stop,
     Interface(String),
     Global((Option<String>, Option<String>)),
-    Program((String, (Option<String>, Option<String>))),
+    Program(
+        (
+            String,
+            (
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            ),
+        ),
+    ),
 }
 
 use std::fmt;
@@ -182,19 +192,32 @@ impl fmt::Display for Message {
                 }
                 write!(f, "{}", msg)
             }
-            Program((program, (up, down))) => {
+            Program((program, (down, up, down_min, up_min))) => {
                 let mut msg = "Program: ".to_string();
 
                 msg.push_str(program);
                 msg.push(' ');
+                if let Some(down) = down {
+                    msg.push_str(down);
+                    msg.push(' ');
+                } else {
+                    msg.push_str("None ");
+                }
                 if let Some(up) = up {
                     msg.push_str(up);
                     msg.push(' ');
                 } else {
                     msg.push_str("None ");
                 }
-                if let Some(down) = down {
-                    msg.push_str(down);
+
+                if let Some(down_min) = down_min {
+                    msg.push_str(down_min);
+                    msg.push(' ');
+                } else {
+                    msg.push_str("None ");
+                }
+                if let Some(up_min) = up_min {
+                    msg.push_str(up_min);
                     msg.push(' ');
                 } else {
                     msg.push_str("None ");

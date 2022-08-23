@@ -35,7 +35,15 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     let down_value = SpinButton::with_range(0., f64::MAX, 10.);
     // better default to a working amount
     down_value.set_value(100.);
+
     let down_unit = create_unit_widget();
+
+    let down_min = Label::new(Some("Down Min: "));
+    let down_min_value = SpinButton::with_range(0., f64::MAX, 10.);
+    // better default to a working amount
+    down_min_value.set_value(1.);
+    let down_min_unit = create_unit_widget();
+
     let up = Label::new(Some("Up: "));
     let up_value = SpinButton::with_range(0., f64::MAX, 10.);
     // better default to a working amount
@@ -43,11 +51,18 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     let up_unit = create_unit_widget();
     up_value.set_placeholder_text(Some("None"));
 
+    let up_min = Label::new(Some("Up Min: "));
+    let up_min_value = SpinButton::with_range(0., f64::MAX, 10.);
+    // better default to a working amount
+    up_min_value.set_value(1.);
+    let up_min_unit = create_unit_widget();
+    up_min_value.set_placeholder_text(Some("None"));
+
     let set_btn = CheckButton::new();
 
     // send the program name and its limits to the limiter thread
-    set_btn.connect_toggled(clone!(@strong down_value, @strong up_value, @strong down_unit, @strong up_unit => move |btn| {
-        let (up, down) = if btn.is_active() {
+    set_btn.connect_toggled(clone!(@strong down_value, @strong up_value, @strong down_unit, @strong up_unit ,@strong up_min_value, @strong down_min_value, @strong down_min_unit, @strong up_min_unit=> move |btn| {
+        let (up, down, up_min,down_min) = if btn.is_active() {
             let down = {
                 let val = down_value.text().to_string();
                 Some(val + &get_unit(&down_unit))
@@ -56,9 +71,17 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
                 let val = up_value.text().to_string();
                 Some(val + &get_unit(&up_unit))
             };
-            (up,down)
+            let down_min = {
+                let val = down_min_value.text().to_string();
+                Some(val + &get_unit(&down_min_unit))
+            };
+            let up_min = {
+                let val = up_min_value.text().to_string();
+                Some(val + &get_unit(&up_min_unit))
+            };
+            (up,down,up_min,down_min)
         } else {
-            (None,None)
+            (None,None, None,None)
         };
 
         if global {
@@ -72,7 +95,7 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
             writeln!(
                 stdin.borrow_mut().as_mut().unwrap(),
                 "{}",
-                Message::Program((name.clone(), (down, up)))
+                Message::Program((name.clone(), (down, up, down_min,up_min)))
             )
             .expect("Error sending Program limit to eltrafico_tc");
         }
@@ -92,6 +115,18 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     up_unit.connect_changed(clone!(@strong set_btn => move |_| {
         set_btn.set_active(false);
     }));
+    down_min_value.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
+    up_min_value.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
+    down_min_unit.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
+    up_min_unit.connect_changed(clone!(@strong set_btn => move |_| {
+        set_btn.set_active(false);
+    }));
 
     let hbox = Box::new(Orientation::Horizontal, 20);
     // TODO: make the label fixed size
@@ -104,6 +139,12 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     hbox.add(&up);
     hbox.add(&up_value);
     hbox.add(&up_unit);
+    hbox.add(&down_min);
+    hbox.add(&down_min_value);
+    hbox.add(&down_min_unit);
+    hbox.add(&up_min);
+    hbox.add(&up_min_value);
+    hbox.add(&up_min_unit);
     hbox.add(&Label::new(Some("Active:")));
     hbox.add(&set_btn);
 

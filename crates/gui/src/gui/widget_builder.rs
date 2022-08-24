@@ -23,7 +23,11 @@ fn get_unit(widget: &ComboBoxText) -> String {
     widget.active_text().unwrap().to_string()
 }
 
-pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> gtk::Container {
+pub fn create_row(
+    name: Option<&str>,
+    stdin: SharedStdinHandle,
+    global: bool,
+) -> gtk::ScrolledWindow {
     let advanced = std::env::args().any(|s| &s == "--advanced");
     //TODO switch to a gtk::grid
     let name = name.unwrap_or("?").to_string();
@@ -153,21 +157,19 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     }
 
     hbox.add(&Label::new(Some("Active:")));
+
     hbox.add(&set_btn);
-    if advanced {
-        let scrolled_box: ScrolledWindow =
-            ScrolledWindow::new::<Adjustment, Adjustment>(None, None);
-        scrolled_box.add(&hbox);
-        scrolled_box.upcast()
-    } else {
-        hbox.upcast()
-    }
+    let scrolled_box: ScrolledWindow = ScrolledWindow::new::<Adjustment, Adjustment>(None, None);
+    scrolled_box.add(&hbox);
+    scrolled_box
 }
 
 pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<String, (f32, f32)>) {
     let programs = app_box.children();
     for program in programs {
-        let program: gtk::Box = program.clone().downcast().unwrap();
+        let program: gtk::ScrolledWindow = program.clone().downcast().unwrap();
+        let program: gtk::Viewport = program.children()[0].clone().downcast().unwrap();
+        let program: gtk::Box = program.child().unwrap().downcast().unwrap();
         let program = program.children();
         let name: gtk::Label = program[0].clone().downcast().unwrap();
         let name = name.text().to_string();
@@ -186,9 +188,11 @@ pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<Strin
     }
 }
 
-pub fn update_gui_global_speed(scrolled_box: gtk::Container, global_speed: (f32, f32)) {
-    let global_bar: gtk::Container = scrolled_box.children()[1].clone().downcast().unwrap();
-    let speed: gtk::Label = global_bar.children()[1].clone().downcast().unwrap();
+pub fn update_gui_global_speed(scrolled_box: gtk::ScrolledWindow, global_speed: (f32, f32)) {
+    let viewport: gtk::Viewport = scrolled_box.children()[0].clone().downcast().unwrap();
+    let r#box: gtk::Box = viewport.child().unwrap().downcast().unwrap();
+
+    let speed: gtk::Label = r#box.children()[1].clone().downcast().unwrap();
     speed.set_label(&format!(
         "Down: {:.2} KB/sec Up: {:.2} KB/sec",
         global_speed.1, global_speed.0

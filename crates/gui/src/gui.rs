@@ -61,7 +61,12 @@ fn build_ui(application: &gtk::Application) {
     window.set_title("ElTrafico");
     window.set_border_width(10);
     window.set_position(gtk::WindowPosition::Center);
-    window.set_default_size(300, 500);
+    let advanced = std::env::args().any(|s| &s == "--advanced");
+    if advanced {
+        window.set_default_size(1600, 900);
+    } else {
+        window.set_default_size(800, 600);
+    }
 
     let main_box = Box::new(Orientation::Vertical, 10);
     let interface_row = create_interface_row(stdin.clone());
@@ -156,7 +161,17 @@ pub enum Message {
     Stop,
     Interface(String),
     Global((Option<String>, Option<String>)),
-    Program((String, (Option<String>, Option<String>))),
+    Program(
+        (
+            String,
+            (
+                Option<String>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            ),
+        ),
+    ),
 }
 
 use std::fmt;
@@ -182,19 +197,32 @@ impl fmt::Display for Message {
                 }
                 write!(f, "{}", msg)
             }
-            Program((program, (up, down))) => {
+            Program((program, (down, up, down_min, up_min))) => {
                 let mut msg = "Program: ".to_string();
 
                 msg.push_str(program);
                 msg.push(' ');
+                if let Some(down) = down {
+                    msg.push_str(down);
+                    msg.push(' ');
+                } else {
+                    msg.push_str("None ");
+                }
                 if let Some(up) = up {
                     msg.push_str(up);
                     msg.push(' ');
                 } else {
                     msg.push_str("None ");
                 }
-                if let Some(down) = down {
-                    msg.push_str(down);
+
+                if let Some(down_min) = down_min {
+                    msg.push_str(down_min);
+                    msg.push(' ');
+                } else {
+                    msg.push_str("None ");
+                }
+                if let Some(up_min) = up_min {
+                    msg.push_str(up_min);
                     msg.push(' ');
                 } else {
                     msg.push_str("None ");

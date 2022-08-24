@@ -23,12 +23,15 @@ fn get_unit(widget: &ComboBoxText) -> String {
     widget.active_text().unwrap().to_string()
 }
 
-pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> Box {
+pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) -> gtk::Container {
+    let advanced = std::env::args().any(|s| &s == "--advanced");
     //TODO switch to a gtk::grid
     let name = name.unwrap_or("?").to_string();
     let print_name = format!("<b>{}</b>", &name);
     let title = Label::new(None);
     title.set_markup(&print_name);
+    title.set_width_chars(20);
+    title.set_halign(gtk::Align::Start);
 
     let current_speed = Label::new(None);
     let down = Label::new(Some("Down: "));
@@ -139,16 +142,26 @@ pub fn create_row(name: Option<&str>, stdin: SharedStdinHandle, global: bool) ->
     hbox.add(&up);
     hbox.add(&up_value);
     hbox.add(&up_unit);
-    hbox.add(&down_min);
-    hbox.add(&down_min_value);
-    hbox.add(&down_min_unit);
-    hbox.add(&up_min);
-    hbox.add(&up_min_value);
-    hbox.add(&up_min_unit);
+
+    if advanced {
+        hbox.add(&down_min);
+        hbox.add(&down_min_value);
+        hbox.add(&down_min_unit);
+        hbox.add(&up_min);
+        hbox.add(&up_min_value);
+        hbox.add(&up_min_unit);
+    }
+
     hbox.add(&Label::new(Some("Active:")));
     hbox.add(&set_btn);
-
-    hbox
+    if advanced {
+        let scrolled_box: ScrolledWindow =
+            ScrolledWindow::new::<Adjustment, Adjustment>(None, None);
+        scrolled_box.add(&hbox);
+        scrolled_box.upcast()
+    } else {
+        hbox.upcast()
+    }
 }
 
 pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<String, (f32, f32)>) {
@@ -173,7 +186,8 @@ pub fn update_gui_program_speed(app_box: gtk::Box, programs_speed: HashMap<Strin
     }
 }
 
-pub fn update_gui_global_speed(global_bar: gtk::Box, global_speed: (f32, f32)) {
+pub fn update_gui_global_speed(scrolled_box: gtk::Container, global_speed: (f32, f32)) {
+    let global_bar: gtk::Container = scrolled_box.children()[1].clone().downcast().unwrap();
     let speed: gtk::Label = global_bar.children()[1].clone().downcast().unwrap();
     speed.set_label(&format!(
         "Down: {:.2} KB/sec Up: {:.2} KB/sec",

@@ -23,6 +23,8 @@ Choose your limits then activate it by toggling the corresponding checkbox on.
 
 If [bandwhich](https://github.com/imsnif/bandwhich) or [nethogs](https://github.com/raboof/nethogs) is installed on your system, `eltrafico` will use it automatically to show programs live network usage
 
+You can run eltrafico with `--advanced` flag to get more options in the gui
+
 ## Technical details
 Eltrafico is split on 2 crates that communicate through stdin/out:
 

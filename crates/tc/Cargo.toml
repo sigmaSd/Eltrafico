@@ -7,6 +7,12 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.17"
+clap = { version = "3.2.17", features = ["derive"] }
+toml = "0.5.9"
+serde = { version = "1.0.144", features = ["serde_derive", "derive"] }
+notify = "4.0.17"
+ctrlc = "3.2.3"
+ 
 
 [dependencies.simple_logger]
 version = "2.3.0"

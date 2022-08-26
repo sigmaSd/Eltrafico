@@ -1,0 +1,28 @@
+[global]
+interface="eno1"
+download="1024Mbps"
+upload="1024Mbps"
+download_minimum= "100Kbps"
+upload_minimum= "10Kbps"
+download_priority= 0
+upload_priority= 0
+
+[[process]]
+rule_name="Chrome"
+download="2Mbps"
+upload="10Mbps"
+download_minimum= "100Kbps"
+upload_minimum= "10Kbps" 
+download_priority= 1
+upload_priority= 1
+match_exe="chrome"
+
+[[process]]
+rule_name="ssh"
+download="5Mbps"
+upload="10Mbps"
+download_minimum= "100Kbps"
+upload_minimum= "10Kbps"
+download_priority= 1
+upload_priority= 1
+match_exe="sshd"

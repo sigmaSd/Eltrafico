@@ -12,7 +12,17 @@ With network usage:
 <img src="./gui_with_network_usage.png" width="70%" height="70%">
 
 # Usage
+
+- gui
+
 `eltrafico`
+
+
+- use only cli and toml config
+
+```
+sudo ./tc -c  conf/el.toml -d 1
+```
 
 # Howto
 Choose the correct interface, and eltrafico will monitor it for active connections
@@ -43,7 +53,7 @@ This allows to run the gui as a normal user, and ask for higher privilege only f
 - pkexec pkill bandwhich
 
 ## Current State
-Works on my pc (TM)
+Works on developer' s PC.
 
 ## Dependencies
  - `iproute2`

@@ -2,5 +2,5 @@
 
 members = [
     "crates/gui",
-    "crates/tc",
+    "crates/eltrafico-tc",
 ]

@@ -122,6 +122,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "eltrafico-tc"
+version = "0.1.0"
+dependencies = [
+ "ctrlc",
+ "log",
+ "simple_logger",
+]
+
+[[package]]
 name = "field-offset"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -704,15 +713,6 @@ dependencies = [
  "thiserror",
  "toml",
  "version-compare",
-]
-
-[[package]]
-name = "tc"
-version = "0.1.0"
-dependencies = [
- "ctrlc",
- "log",
- "simple_logger",
 ]
 
 [[package]]

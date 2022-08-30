@@ -84,7 +84,7 @@ jobs:
       shell: bash
       run: |
        cp "target/release/gui" "target/release/eltrafico"
-       cp "target/release/tc" "target/release/eltrafico_tc"
+       cp "target/release/eltrafico-tc" "target/release/eltrafico_tc"
        tar cf "eltrafico.tar" "target/release/eltrafico" "target/release/eltrafico_tc"
        echo "ASSET=eltrafico.tar" >> $GITHUB_ENV
 

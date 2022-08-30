@@ -11,6 +11,10 @@ With network usage:
 
 <img src="./gui_with_network_usage.png" width="70%" height="70%">
 
+The default frontend is GTK, other frontends can be written:
+
+- https://github.com/sigmaSd/bandito https://user-images.githubusercontent.com/22427111/187526633-de317357-ce9f-4314-b721-27fa62e0e9ce.png
+
 # Usage
 `eltrafico`
 

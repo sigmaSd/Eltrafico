@@ -37,7 +37,9 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
     let mut msg = String::new();
 
     let mut current_interface = loop {
-        rx.read_line(&mut msg)?;
+        if rx.read_line(&mut msg).is_err() {
+            return Ok(());
+        }
         if !msg.is_empty() {
             match msg.clone().into() {
                 Message::Stop => {
@@ -63,6 +65,8 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
         None,
         None,
     )?;
+
+    handle_ctrlc(root_ingress.clone(), current_interface.clone());
 
     let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
 
@@ -117,24 +121,19 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                     )?;
                 }
                 Message::Program((name, (down, up, down_min, up_min))) => {
-                    let ingress_class_id = if let (Some(down), Some(down_min)) = (down, down_min) {
+                    let ingress_class_id = if let Some(down) = down {
                         Some(tc::tc_add_htb_class(
                             &root_ingress,
                             Some(down),
-                            Some(down_min),
+                            down_min,
                             None,
                         )?)
                     } else {
                         None
                     };
 
-                    let egress_class_id = if let (Some(up), Some(up_min)) = (up, up_min) {
-                        Some(tc::tc_add_htb_class(
-                            &root_egress,
-                            Some(up),
-                            Some(up_min),
-                            None,
-                        )?)
+                    let egress_class_id = if let Some(up) = up {
+                        Some(tc::tc_add_htb_class(&root_egress, Some(up), up_min, None)?)
                     } else {
                         None
                     };
@@ -389,4 +388,13 @@ fn add_egress_filter(port: usize, egress_qdisc: &QDisc, class_id: usize) -> Resu
         class_id,
     )?;
     Ok(filter_id)
+}
+
+fn handle_ctrlc(root_ingress: QDisc, current_interface: String) {
+    ctrlc::set_handler(move || {
+        log::warn!("Caught SIGINT signal");
+        let _ = clean_up(&root_ingress.device, &current_interface);
+        std::process::exit(0);
+    })
+    .expect("Error setting Ctrl-C handler");
 }

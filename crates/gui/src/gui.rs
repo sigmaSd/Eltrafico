@@ -61,6 +61,7 @@ fn build_ui(application: &gtk::Application) {
     window.set_title("ElTrafico");
     window.set_border_width(10);
     window.set_position(gtk::WindowPosition::Center);
+    window.maximize();
     let advanced = std::env::args().any(|s| &s == "--advanced");
     if advanced {
         window.set_default_size(1600, 900);

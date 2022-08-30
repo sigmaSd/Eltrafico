@@ -12,6 +12,7 @@ const MAX_RATE: &str = "4294967295";
 // This ID seems to be fixed for the ingress QDisc
 pub const INGRESS_QDISC_PARENT_ID: &str = "ffff:fff1";
 
+#[derive(Clone)]
 pub struct QDisc {
     pub device: String,
     pub id: usize,

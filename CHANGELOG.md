@@ -1,3 +1,15 @@
+**2.4.0**
+- Fix bug in `add_htb_class`
+- Rename `tc` to `eltrafico-tc`
+- Handle SIGINT signal and cleanup when recieved
+- Add a note about the possibility to write other frontends and link to bandito
+
+**2.3.4**
+- Update codebase
+- Update code to match traffic toll latest commit
+- Refactor codebase to use crates instead of bins
+- Add a new flag `--advanced` that shows additional options in the ui (thanks @xgdgsc !)
+
 **2.3.1**
 - Default to a working limits
 - Fix a couple of warnings 

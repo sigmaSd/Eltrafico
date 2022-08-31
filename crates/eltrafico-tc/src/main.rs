@@ -15,14 +15,17 @@ use std::time::Duration;
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
-    SimpleLogger::new().init().unwrap();
+    SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .env()
+        .init()?;
 
     let args: Vec<String> = std::env::args().collect();
     if args.contains(&"-h".to_string()) || args.contains(&"--help".to_string()) {
         //TODO helpful message
         std::process::exit(0);
     }
-    limit(Some(Duration::from_secs(2)), io::stdout(), io::stdin())
+    limit(Some(Duration::from_secs(1)), io::stdout(), io::stdin())
 }
 
 pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) -> Result<()> {
@@ -81,10 +84,12 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
     std::thread::spawn(move || {
         let mut input = String::new();
         loop {
-            stdin
-                .read_line(&mut input)
-                .expect("Error reading message from eltrfico");
-            tx_stdin.send(input.clone()).unwrap();
+            match stdin.read_line(&mut input) {
+                Ok(_) => {
+                    tx_stdin.send(input.clone()).unwrap();
+                }
+                Err(e) => log::warn!("{e}"),
+            }
             input.clear();
         }
     });

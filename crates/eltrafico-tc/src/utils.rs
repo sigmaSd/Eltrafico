@@ -4,7 +4,6 @@ use std::process::{Command, Output};
 
 #[macro_export]
 macro_rules! run {
-// run macro
     ($($arg:tt)*) => {{
         let out = $crate::run_out!($($arg)*);
         out.map(|_|())
@@ -35,11 +34,6 @@ pub fn run(v: String) -> Result<Output> {
     Ok(output)
 }
 
-#[test]
-fn tifconfig() {
-    dbg!(ifconfig().unwrap());
-}
-// ifconfig
 pub fn ifconfig() -> Result<Vec<Interface>> {
     let raw_data = std::fs::read_to_string("/proc/net/dev")?;
 

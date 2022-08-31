@@ -67,7 +67,9 @@ Works on my pc (TM)
  
 ## Building/Dev
 - needs gtk-dev: https://gtk-rs.org/docs/requirements.html
-- cargo b --bins
-- cargo r -- --eltrafico-tc target/debug/eltrafico_tc
+- cargo b
+- cargo r --bin gui -- --eltrafico-tc target/debug/eltrafico_tc
+
+Its a good idea to set `RUST_LOG=trace` when devoloping
 
 ## [Changelog](./CHANGELOG.md)

@@ -1,5 +1,6 @@
 mod tc;
 mod utils;
+use crate::ipc::LimitConfig;
 use crate::tc::{
     tc_add_htb_class, tc_add_u32_filter, tc_remove_qdisc, tc_remove_u32_filter, tc_setup, QDisc,
     INGRESS_QDISC_PARENT_ID,
@@ -11,6 +12,8 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::sync::mpsc;
 use std::time::Duration;
+mod ipc;
+use ipc::Message;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -32,12 +35,7 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
     // block till we get an initial interface
     // and while we're at it if we get a global limit msg save the values
     // also if we get stop msg quit early
-    let mut global_limit_record: (
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-    ) = Default::default();
+    let mut global_limit = Default::default();
 
     trace!("waiting for interface");
     let mut current_interface = {
@@ -54,10 +52,10 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                         return Ok(());
                     }
                     Message::Interface(name) => break name,
-                    Message::Global(limit) => {
-                        global_limit_record = limit;
+                    Message::Global { config } => {
+                        global_limit = config;
                     }
-                    Message::Program(_) => (),
+                    Message::Program { .. } => (),
                 },
                 Err(e) => warn!("{e}"),
             }
@@ -67,15 +65,18 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
     trace!("selected interface is {current_interface}");
 
     trace!("running tc_setup");
-    let (mut root_ingress, mut root_egress) = tc_setup(
-        current_interface.clone(),
-        global_limit_record.0.clone(),
-        global_limit_record.2.clone(),
-        global_limit_record.1.clone(),
-        global_limit_record.3.clone(),
-        None,
-        None,
-    )?;
+    let (mut root_ingress, mut root_egress) = {
+        let global_limit = global_limit.clone();
+        tc_setup(
+            current_interface.clone(),
+            global_limit.download_rate,
+            global_limit.download_minimum_rate,
+            global_limit.upload_rate,
+            global_limit.upload_minimum_rate,
+            global_limit.download_priority,
+            global_limit.upload_priority,
+        )?
+    };
 
     handle_ctrlc(root_ingress.clone(), current_interface.clone());
 
@@ -114,35 +115,54 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                             &current_interface,
                             &mut root_ingress,
                             &mut root_egress,
-                            global_limit_record.clone(),
+                            global_limit.clone(),
                             &mut filtered_ports,
                         )?;
                     }
-                    Message::Global(limit) => {
-                        info!("recieved global limit: {limit:?}");
+                    Message::Global { config } => {
+                        info!("recieved global limit: {config:?}");
                         clean_up(&root_ingress.device, &current_interface)?;
 
                         // save new values
-                        global_limit_record = limit;
+                        global_limit = config;
 
                         resetup_tc_and_filtered_ports(
                             &current_interface,
                             &mut root_ingress,
                             &mut root_egress,
-                            global_limit_record.clone(),
+                            global_limit.clone(),
                             &mut filtered_ports,
                         )?;
                     }
-                    Message::Program((name, (down, up, down_min, up_min))) => {
-                        info!("recieved program: {name:?} {down:?} {up:?} {down_min:?} {up_min:?}");
-                        let ingress_class_id = if let Some(down) = down {
-                            Some(tc_add_htb_class(&root_ingress, Some(down), down_min, None)?)
+                    Message::Program { name, config } => {
+                        info!("recieved program: {config:?}");
+                        let LimitConfig {
+                            download_rate,
+                            download_minimum_rate,
+                            upload_rate,
+                            upload_minimum_rate,
+                            download_priority,
+                            upload_priority,
+                        } = config;
+
+                        let ingress_class_id = if let Some(download_rate) = download_rate {
+                            Some(tc_add_htb_class(
+                                &root_ingress,
+                                Some(download_rate),
+                                download_minimum_rate,
+                                download_priority,
+                            )?)
                         } else {
                             None
                         };
 
-                        let egress_class_id = if let Some(up) = up {
-                            Some(tc_add_htb_class(&root_egress, Some(up), up_min, None)?)
+                        let egress_class_id = if let Some(upload_rate) = upload_rate {
+                            Some(tc_add_htb_class(
+                                &root_egress,
+                                Some(upload_rate),
+                                upload_minimum_rate,
+                                upload_priority,
+                            )?)
                         } else {
                             None
                         };
@@ -255,119 +275,22 @@ fn resetup_tc_and_filtered_ports(
     current_interface: &str,
     ingress: &mut QDisc,
     egress: &mut QDisc,
-    global_limit: (
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-    ),
+    global_limit: LimitConfig,
     filtered_ports: &mut HashMap<DirPort, String>,
 ) -> Result<()> {
     filtered_ports.clear();
 
-    let (new_ingress, new_egress) = tc_setup(
-        current_interface.into(),
-        global_limit.0,
-        global_limit.2,
-        global_limit.1,
-        global_limit.3,
-        None,
-        None,
+    (*ingress, *egress) = tc_setup(
+        current_interface.to_string(),
+        global_limit.download_rate,
+        global_limit.download_minimum_rate,
+        global_limit.upload_rate,
+        global_limit.upload_minimum_rate,
+        global_limit.download_priority,
+        global_limit.upload_priority,
     )?;
 
-    *ingress = new_ingress;
-    *egress = new_egress;
-
     Ok(())
-}
-
-#[derive(Eq, PartialEq, Debug)]
-pub enum Message {
-    Stop,
-    Interface(String),
-    Global(
-        (
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-    ),
-    Program(
-        (
-            String,
-            (
-                Option<String>,
-                Option<String>,
-                Option<String>,
-                Option<String>,
-            ),
-        ),
-    ),
-}
-
-impl TryFrom<String> for Message {
-    type Error = String;
-    fn try_from(msg: String) -> std::result::Result<Self, Self::Error> {
-        let parse = || -> Option<Message> {
-            use Message::*;
-            match msg.trim() {
-                "Stop" => Some(Stop),
-                msg if msg.starts_with("Interface: ") => {
-                    Some(Interface(msg.split("Interface: ").nth(1)?.to_string()))
-                }
-                msg if msg.starts_with("Global: ") => {
-                    let msg = msg.split("Global: ").nth(1)?;
-                    let mut msg = msg.split_whitespace();
-                    let mut down = msg.next().map(ToString::to_string);
-                    let mut up = msg.next().map(ToString::to_string);
-                    let mut down_min = msg.next().map(ToString::to_string);
-                    let mut up_min = msg.next().map(ToString::to_string);
-                    if down == Some("None".into()) {
-                        down = None;
-                    }
-                    if up == Some("None".into()) {
-                        up = None;
-                    }
-
-                    if down_min == Some("None".into()) {
-                        down_min = None;
-                    }
-
-                    if up_min == Some("None".into()) {
-                        up_min = None;
-                    }
-
-                    Some(Global((down, up, down_min, up_min)))
-                }
-                msg if msg.starts_with("Program: ") => {
-                    let msg = msg.split("Program: ").nth(1)?;
-                    let mut msg = msg.split_whitespace();
-                    let program_name = msg.next()?.to_string();
-                    let mut down = msg.next().map(ToString::to_string);
-                    let mut up = msg.next().map(ToString::to_string);
-                    let mut down_min = msg.next().map(ToString::to_string);
-                    let mut up_min = msg.next().map(ToString::to_string);
-                    if down == Some("None".into()) {
-                        down = None;
-                    }
-                    if up == Some("None".into()) {
-                        up = None;
-                    }
-                    if down_min == Some("None".into()) {
-                        down_min = None;
-                    }
-                    if up_min == Some("None".into()) {
-                        up_min = None;
-                    }
-
-                    Some(Program((program_name, (down, up, down_min, up_min))))
-                }
-                _ => None,
-            }
-        };
-        parse().ok_or(format!("failed to parse message: {msg}"))
-    }
 }
 
 fn clean_up(ingress_device: &str, egress_device: &str) -> Result<()> {

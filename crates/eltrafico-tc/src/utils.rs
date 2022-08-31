@@ -20,16 +20,13 @@ macro_rules! run_out {
 }
 
 pub fn run(v: String) -> Result<Output> {
-    // log all cmds
-    //dbg!(&v);
-
     let cmd = v.clone();
     let mut cmd = cmd.split_whitespace();
     let output = Command::new(cmd.next().expect("Tried to run an empty command"))
         .args(cmd.collect::<Vec<&str>>())
         .output()?;
     if !output.stderr.is_empty() {
-        eprintln!(
+        log::error!(
             "Error while running cmd: {:?}\nerr: {}",
             v,
             String::from_utf8_lossy(&output.stderr)

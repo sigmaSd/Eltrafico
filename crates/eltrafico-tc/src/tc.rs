@@ -40,7 +40,7 @@ fn create_ifb_device() -> Result<String> {
     let created_interface_name = after
         .difference(&before)
         .next()
-        .expect("Error creating  interface");
+        .ok_or("Error creating  interface")?;
 
     activate_device(created_interface_name)?;
     Ok(created_interface_name.to_string())

@@ -80,3 +80,39 @@ impl TryFrom<String> for Message {
         parse().ok_or(format!("failed to parse message: {msg}"))
     }
 }
+
+#[test]
+fn test_parse_message() {
+    assert_eq!(
+        "Program: firefox 100kbps".to_string().try_into(),
+        Ok(Message::Program {
+            name: "firefox".into(),
+            config: LimitConfig {
+                download_rate: Some("100kbps".into()),
+                download_minimum_rate: None,
+                upload_rate: None,
+                upload_minimum_rate: None,
+                download_priority: None,
+                upload_priority: None,
+            }
+        })
+    );
+    assert_eq!(
+        "Global: None 10kbps".to_string().try_into(),
+        Ok(Message::Global {
+            config: LimitConfig {
+                download_rate: None,
+                download_minimum_rate: None,
+                upload_rate: Some("10kbps".into()),
+                upload_minimum_rate: None,
+                download_priority: None,
+                upload_priority: None,
+            }
+        })
+    );
+    assert_eq!(
+        "Interface: wlan0".to_string().try_into(),
+        Ok(Message::Interface("wlan0".into()))
+    );
+    assert_eq!("Stop".to_string().try_into(), Ok(Message::Stop));
+}

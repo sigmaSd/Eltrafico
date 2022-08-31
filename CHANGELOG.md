@@ -1,4 +1,9 @@
-**2.4.0**
+**2.3.6**
+- Refactor codebase
+- Bugfixes
+- handle ipv6 in ss
+
+**2.3.5**
 - Fix bug in `add_htb_class`
 - Rename `tc` to `eltrafico-tc`
 - Handle SIGINT signal and cleanup when recieved

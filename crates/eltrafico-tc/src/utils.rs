@@ -113,9 +113,9 @@ fn ss_parse(row: &str, net_table: &mut HashMap<String, Vec<Connection>>) -> Opti
         .or_insert_with(Vec::new);
     net_entry.push(Connection {
         laddr,
-        lport: lport.into(),
+        lport: lport.parse().ok()?,
         raddr,
-        rport: rport.into(),
+        rport: rport.parse().ok()?,
     });
 
     Some(())
@@ -124,9 +124,9 @@ fn ss_parse(row: &str, net_table: &mut HashMap<String, Vec<Connection>>) -> Opti
 #[derive(Debug, PartialEq, Eq)]
 pub struct Connection {
     pub laddr: String,
-    pub lport: String,
+    pub lport: usize,
     pub raddr: String,
-    pub rport: String,
+    pub rport: usize,
 }
 
 #[test]
@@ -141,9 +141,9 @@ fn test_ss_parse() {
                 "firefox".to_string(),
                 vec!(Connection {
                     laddr: "192.168.1.1".into(),
-                    lport: "5123".into(),
+                    lport: 5123,
                     raddr: "200.2000.200.1111".into(),
-                    rport: "443".into(),
+                    rport: 443,
                 })
             )]
             .into_iter()
@@ -165,18 +165,18 @@ fn test_ss_parse() {
                     "node_exporter".to_string(),
                     vec!(Connection {
                         laddr: "::1".into(),
-                        lport: "9100".into(),
+                        lport: 9100,
                         raddr: "::2".into(),
-                        rport: "33586".into(),
+                        rport: 33586,
                     })
                 ),
                 (
                     "sshd".to_string(),
                     vec!(Connection {
                         laddr: "::1".into(),
-                        lport: "33586".into(),
+                        lport: 33586,
                         raddr: "::1".into(),
-                        rport: "9100".into(),
+                        rport: 9100,
                     })
                 )
             ]

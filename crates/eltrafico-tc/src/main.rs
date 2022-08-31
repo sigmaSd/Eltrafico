@@ -1,15 +1,19 @@
 mod tc;
 mod utils;
-use crate::tc::*;
+use crate::tc::{
+    tc_add_htb_class, tc_add_u32_filter, tc_remove_qdisc, tc_remove_u32_filter, tc_setup, QDisc,
+    INGRESS_QDISC_PARENT_ID,
+};
 use crate::utils::ss;
 use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::io::{self, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
+use std::time::Duration;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn main() {
+fn main() -> Result<()> {
     SimpleLogger::new().init().unwrap();
 
     let args: Vec<String> = std::env::args().collect();
@@ -17,14 +21,10 @@ fn main() {
         //TODO helpful message
         std::process::exit(0);
     }
-    limit(Some(2), io::stdout(), io::stdin()).unwrap();
+    limit(Some(Duration::from_secs(2)), io::stdout(), io::stdin())
 }
 
-pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::Result<()> {
-    use TrafficType::*;
-
-    let mut program_to_trafficid_map = HashMap::new();
-
+pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) -> Result<()> {
     // block till we get an initial interface
     // and while we're at it if we get a global limit msg save the values
     // also if we get stop msg quit early
@@ -34,25 +34,30 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
         Option<String>,
         Option<String>,
     ) = Default::default();
-    let mut msg = String::new();
 
-    let mut current_interface = loop {
-        if rx.read_line(&mut msg).is_err() {
-            return Ok(());
-        }
-        if !msg.is_empty() {
-            match msg.clone().into() {
-                Message::Stop => {
-                    writeln!(tx, "Stop")?;
-                    return Ok(());
-                }
-                Message::Interface(name) => break name,
-                Message::Global(limit) => {
-                    global_limit_record = limit;
-                }
-                Message::Program(_) => (),
+    let mut current_interface = {
+        let mut msg = String::new();
+        loop {
+            if stdin.read_line(&mut msg).is_err() {
+                return Ok(());
             }
-            msg.clear();
+            if !msg.is_empty() {
+                match msg.clone().try_into() {
+                    Ok(msg) => match msg {
+                        Message::Stop => {
+                            writeln!(stdout, "Stop")?;
+                            return Ok(());
+                        }
+                        Message::Interface(name) => break name,
+                        Message::Global(limit) => {
+                            global_limit_record = limit;
+                        }
+                        Message::Program(_) => (),
+                    },
+                    Err(e) => log::warn!("{e}"),
+                }
+                msg.clear();
+            }
         }
     };
 
@@ -68,93 +73,85 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
 
     handle_ctrlc(root_ingress.clone(), current_interface.clone());
 
-    let mut filtered_ports: HashMap<(TrafficType, String), String> = HashMap::new();
+    let (tx_stdin, rx_stdin) = mpsc::channel();
 
-    let msgs = Arc::new(Mutex::new(String::new()));
-
-    // Read stdin msg in a new thread
-    let msgs_c = msgs.clone();
     std::thread::spawn(move || {
-        let mut tmp = String::new();
+        let mut input = String::new();
         loop {
-            rx.read_line(&mut tmp)
+            stdin
+                .read_line(&mut input)
                 .expect("Error reading message from eltrfico");
-            *msgs_c.lock().unwrap() = tmp.clone();
-            tmp.clear();
+            tx_stdin.send(input.clone()).unwrap();
+            input.clear();
         }
     });
+
+    let mut program_to_trafficid_map = HashMap::new();
+    let mut filtered_ports: HashMap<DirPort, String> = HashMap::new();
 
     loop {
         // check for new user limits
         // and add htb class for them
-        // TODO remove freed htb classes
-        let mut active_ports = HashMap::new();
 
-        // check if we recieved a new msg on stdin
-        let msg = msgs.lock().unwrap().clone();
-        if !msg.is_empty() {
-            match Message::from(msg) {
-                Message::Interface(name) => {
-                    clean_up(&root_ingress.device, &current_interface)?;
+        // check if we received a new msg on stdin
+        if let Ok(msg) = rx_stdin.try_recv() {
+            match Message::try_from(msg) {
+                Ok(msg) => match msg {
+                    Message::Interface(name) => {
+                        clean_up(&root_ingress.device, &current_interface)?;
 
-                    current_interface = name;
-                    reset_tc(
-                        &current_interface,
-                        &mut root_ingress,
-                        &mut root_egress,
-                        global_limit_record.clone(),
-                        &mut filtered_ports,
-                    )?;
-                }
-                Message::Global(limit) => {
-                    clean_up(&root_ingress.device, &current_interface)?;
+                        current_interface = name;
+                        reset_tc(
+                            &current_interface,
+                            &mut root_ingress,
+                            &mut root_egress,
+                            global_limit_record.clone(),
+                            &mut filtered_ports,
+                        )?;
+                    }
+                    Message::Global(limit) => {
+                        clean_up(&root_ingress.device, &current_interface)?;
 
-                    // save new values
-                    global_limit_record = limit;
+                        // save new values
+                        global_limit_record = limit;
 
-                    reset_tc(
-                        &current_interface,
-                        &mut root_ingress,
-                        &mut root_egress,
-                        global_limit_record.clone(),
-                        &mut filtered_ports,
-                    )?;
-                }
-                Message::Program((name, (down, up, down_min, up_min))) => {
-                    let ingress_class_id = if let Some(down) = down {
-                        Some(tc::tc_add_htb_class(
-                            &root_ingress,
-                            Some(down),
-                            down_min,
-                            None,
-                        )?)
-                    } else {
-                        None
-                    };
+                        reset_tc(
+                            &current_interface,
+                            &mut root_ingress,
+                            &mut root_egress,
+                            global_limit_record.clone(),
+                            &mut filtered_ports,
+                        )?;
+                    }
+                    Message::Program((name, (down, up, down_min, up_min))) => {
+                        let ingress_class_id = if let Some(down) = down {
+                            Some(tc_add_htb_class(&root_ingress, Some(down), down_min, None)?)
+                        } else {
+                            None
+                        };
 
-                    let egress_class_id = if let Some(up) = up {
-                        Some(tc::tc_add_htb_class(&root_egress, Some(up), up_min, None)?)
-                    } else {
-                        None
-                    };
+                        let egress_class_id = if let Some(up) = up {
+                            Some(tc_add_htb_class(&root_egress, Some(up), up_min, None)?)
+                        } else {
+                            None
+                        };
 
-                    program_to_trafficid_map
-                        .insert(name.clone(), (ingress_class_id, egress_class_id));
-                }
-                Message::Stop => {
-                    clean_up(&root_ingress.device, &current_interface)?;
-                    writeln!(tx, "Stop")?;
-                    break Ok(());
-                }
+                        program_to_trafficid_map
+                            .insert(name.clone(), (ingress_class_id, egress_class_id));
+                    }
+                    Message::Stop => {
+                        clean_up(&root_ingress.device, &current_interface)?;
+                        writeln!(stdout, "Stop")?;
+                        break Ok(());
+                    }
+                },
+                Err(e) => log::warn!("{e}"),
             }
-            // clear msg
-            msgs.lock().unwrap().clear();
         }
 
         // look for new ports to filter
-        let active_connections = ss()?;
-
-        for (program, connections) in active_connections {
+        let mut active_ports = HashMap::new();
+        for (program, connections) in ss()? {
             let program_in_map = program_to_trafficid_map
                 .get(&program)
                 .map(ToOwned::to_owned);
@@ -165,45 +162,33 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
                     // add a placeholder for it in the program_to_trafficid_map
                     // and send it to the gui
                     program_to_trafficid_map.insert(program.clone(), (None, None));
-
-                    let msg = format!("ProgramEntry: {}", program);
-                    writeln!(tx, "{}", msg)?;
+                    writeln!(stdout, "ProgramEntry: {program}")?;
                     continue;
                 }
             };
 
-            // filter the connection ports accoding the user specified limits
+            // filter the connection ports according the user specified limits
             for con in connections {
                 if let Some(ingress_class_id) = ingress_class_id {
-                    let ingress_port = (Ingress, con.lport.clone());
+                    let ingress_port = DirPort::Ingress(con.lport);
 
                     if filtered_ports.contains_key(&ingress_port) {
-                        active_ports
-                            .insert(ingress_port.clone(), filtered_ports[&ingress_port].clone());
-                        continue;
+                        active_ports.insert(ingress_port, filtered_ports[&ingress_port].clone());
                     } else {
-                        let ingress_filter_id = add_ingress_filter(
-                            con.lport.parse().unwrap(),
-                            &root_ingress,
-                            ingress_class_id,
-                        )?;
+                        let ingress_filter_id =
+                            add_ingress_filter(con.lport, &root_ingress, ingress_class_id)?;
                         active_ports.insert(ingress_port, ingress_filter_id);
                     }
                 }
 
                 if let Some(egress_class_id) = egress_class_id {
-                    let egress_port = (Egress, con.lport.clone());
+                    let egress_port = DirPort::Egress(con.lport);
 
                     if filtered_ports.contains_key(&egress_port) {
-                        active_ports
-                            .insert(egress_port.clone(), filtered_ports[&egress_port].clone());
-                        continue;
+                        active_ports.insert(egress_port, filtered_ports[&egress_port].clone());
                     } else {
-                        let egress_filter_id = add_egress_filter(
-                            con.lport.parse().unwrap(),
-                            &root_egress,
-                            egress_class_id,
-                        )?;
+                        let egress_filter_id =
+                            add_egress_filter(con.lport, &root_egress, egress_class_id)?;
                         active_ports.insert(egress_port, egress_filter_id);
                     }
                 }
@@ -213,12 +198,12 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
         // remove filter for freed ports
         for (port, filter_id) in filtered_ports {
             if !active_ports.contains_key(&port) {
-                match port.0 {
-                    Ingress => {
-                        tc::tc_remove_u32_filter(&root_ingress, filter_id)?;
+                match port {
+                    DirPort::Ingress(_) => {
+                        tc_remove_u32_filter(&root_ingress, filter_id)?;
                     }
-                    Egress => {
-                        tc::tc_remove_u32_filter(&root_egress, filter_id)?;
+                    DirPort::Egress(_) => {
+                        tc_remove_u32_filter(&root_egress, filter_id)?;
                     }
                 }
             }
@@ -229,17 +214,18 @@ pub fn limit(delay: Option<usize>, mut tx: io::Stdout, rx: io::Stdin) -> crate::
 
         // delay scanning for active connections
         if let Some(delay) = delay {
-            std::thread::sleep(std::time::Duration::from_secs(delay as u64));
+            std::thread::sleep(delay);
         }
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
-enum TrafficType {
+/// Port with direction
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+enum DirPort {
     /// Incomming traffic
-    Ingress,
+    Ingress(usize),
     /// Outgoing traffic
-    Egress,
+    Egress(usize),
 }
 
 fn reset_tc(
@@ -252,11 +238,11 @@ fn reset_tc(
         Option<String>,
         Option<String>,
     ),
-    filtered_ports: &mut HashMap<(TrafficType, String), String>,
+    filtered_ports: &mut HashMap<DirPort, String>,
 ) -> Result<()> {
     filtered_ports.clear();
 
-    let (new_ingress, new_egress) = tc::tc_setup(
+    let (new_ingress, new_egress) = tc_setup(
         current_interface.into(),
         global_limit.0,
         global_limit.2,
@@ -297,8 +283,9 @@ pub enum Message {
     ),
 }
 
-impl From<String> for Message {
-    fn from(msg: String) -> Message {
+impl TryFrom<String> for Message {
+    type Error = String;
+    fn try_from(msg: String) -> std::result::Result<Self, Self::Error> {
         let parse = || -> Option<Message> {
             use Message::*;
             match msg.trim() {
@@ -353,10 +340,10 @@ impl From<String> for Message {
 
                     Some(Program((program_name, (down, up, down_min, up_min))))
                 }
-                msg => panic!("Uknown msg recieved: {}", msg),
+                _ => None,
             }
         };
-        parse().unwrap_or_else(|| panic!("Malformated message: {}", msg))
+        parse().ok_or(format!("failed to parse message: {msg}"))
     }
 }
 
@@ -368,11 +355,7 @@ fn clean_up(ingress_device: &str, egress_device: &str) -> Result<()> {
     Ok(())
 }
 
-fn add_ingress_filter(
-    port: usize,
-    ingress_qdisc: &QDisc,
-    class_id: usize,
-) -> crate::Result<String> {
+fn add_ingress_filter(port: usize, ingress_qdisc: &QDisc, class_id: usize) -> Result<String> {
     let filter_id = tc_add_u32_filter(
         ingress_qdisc,
         format!("match ip dport {port} 0xffff"),

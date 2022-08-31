@@ -135,7 +135,7 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                         )?;
                     }
                     Message::Program { name, config } => {
-                        info!("recieved program: {config:?}");
+                        info!("recieved program: {name} {config:?}");
                         let LimitConfig {
                             download_rate,
                             download_minimum_rate,

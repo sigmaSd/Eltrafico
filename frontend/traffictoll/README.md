@@ -1,6 +1,6 @@
 # TrafficToll
 
-Frontend to eltrafico-tc that is similar to the origianl traffictoll
+Frontend to eltrafico-tc that is similar to the original traffictoll
 
 It uses a toml config for the limits (with hot reload)
 

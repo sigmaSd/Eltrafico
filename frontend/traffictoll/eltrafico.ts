@@ -1,17 +1,23 @@
-export interface Process {
-  match: { name: string }[];
-  download?: string;
-  upload?: string;
-  "download-minimum"?: string;
-  "upload-minimum"?: string;
+import { z } from "https://deno.land/x/zod@v3.21.4/mod.ts";
+
+export const zProcess = z.object({
+  // the only required prop, can be made optional as well
+  match: z.object({ name: z.string().optional() }).array(),
+  download: z.string().optional(),
+  upload: z.string().optional(),
+  "download-minimum": z.string().optional(),
+  "upload-minimum": z.string().optional(),
   //TODO: use these
-  "download-priority"?: string;
-  "upload-priority"?: string;
-}
+  "download-priority": z.number().optional(),
+  "upload-priority": z.number().optional(),
+});
+export type Process = z.infer<typeof zProcess>;
 
 function findEltraficoTc() {
   return Deno.env.get("TC") || "eltrafico-tc";
 }
+
+//TODO: add reset
 
 export class ElTrafico {
   #tc: Deno.ChildProcess;

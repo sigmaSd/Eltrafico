@@ -1,15 +1,15 @@
 import * as yaml from "https://deno.land/std@0.192.0/yaml/mod.ts";
-import { ElTrafico, Process } from "./eltrafico.ts";
+import { ElTrafico, zProcess } from "./eltrafico.ts";
+import { z } from "https://deno.land/x/zod@v3.21.4/mod.ts";
 
-//TODO: validate with zod
-
-interface Config {
-  download: string;
-  upload: string;
-  "download-minimum": string;
-  "upload-minimum": string;
-  processes: Record<string, Process>;
-}
+const zConfig = z.object({
+  download: z.string().optional(),
+  upload: z.string().optional(),
+  "download-minimum": z.string().optional(),
+  "upload-minimum": z.string().optional(),
+  processes: z.record(z.string(), zProcess).optional(),
+});
+type Config = z.infer<typeof zConfig>;
 
 if (import.meta.main) {
   const netInterface = Deno.args[0];
@@ -19,7 +19,12 @@ if (import.meta.main) {
   if (!configPath) throw new Error("no config specified");
 
   const eltrafico = new ElTrafico();
-  await limit({ netInterface, configPath, eltrafico });
+  try {
+    await limit({ netInterface, configPath, eltrafico });
+  } catch (e) {
+    console.log("failed to apply limits:", e);
+    Deno.exit(1);
+  }
 
   const watcher = Deno.watchFs(configPath);
   let lastFutureJob = undefined;
@@ -28,7 +33,14 @@ if (import.meta.main) {
     // only trigger reload after there are no events for 1 seconds
     clearInterval(lastFutureJob);
     lastFutureJob = setTimeout(
-      async () => await limit({ netInterface, configPath, eltrafico }),
+      async () => {
+        try {
+          await limit({ netInterface, configPath, eltrafico });
+        } catch (e) {
+          console.log("failed to apply limits:", e);
+          // don't exit, it maybe a syntax error
+        }
+      },
       1000,
     );
   }
@@ -41,9 +53,9 @@ async function limit(
     eltrafico: ElTrafico;
   },
 ) {
-  const config = yaml.parse(
+  const config: Config = zConfig.parse(yaml.parse(
     Deno.readTextFileSync(configPath),
-  ) as unknown as Config;
+  ));
 
   await eltrafico.interface(netInterface);
   await eltrafico.limitGlobal({
@@ -53,13 +65,15 @@ async function limit(
     "upload-minimum": config["upload-minimum"],
   });
 
-  for (const [_name, process] of Object.entries(config.processes)) {
-    await eltrafico.limit({
-      match: process.match,
-      download: process.download,
-      upload: process.upload,
-      "download-minimum": process["download-minimum"],
-      "upload-minimum": process["upload-minimum"],
-    });
+  if (config.processes) {
+    for (const [_name, process] of Object.entries(config.processes)) {
+      await eltrafico.limit({
+        match: process.match,
+        download: process.download,
+        upload: process.upload,
+        "download-minimum": process["download-minimum"],
+        "upload-minimum": process["upload-minimum"],
+      });
+    }
   }
 }

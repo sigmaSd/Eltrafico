@@ -1,34 +1,25 @@
-import * as toml from "https://deno.land/std@0.192.0/toml/mod.ts";
-import { ElTrafico, Unit } from "./eltrafico.ts";
+import * as yaml from "https://deno.land/std@0.192.0/yaml/mod.ts";
+import { ElTrafico, Process } from "./eltrafico.ts";
+
+//TODO: validate with zod
 
 interface Config {
-  global: {
-    interface: string;
-    download: string;
-    upload: string;
-    download_minimum: string;
-    upload_minimum: string;
-    download_priority: number;
-    upload_priority: number;
-  };
-  process: {
-    rule_name: string;
-    download: string;
-    upload: string;
-    download_minimum: string;
-    upload_minimum: string;
-    download_priority: number;
-    upload_priority: number;
-    match_exe: string;
-  }[];
+  download: string;
+  upload: string;
+  "download-minimum": string;
+  "upload-minimum": string;
+  processes: Record<string, Process>;
 }
 
 if (import.meta.main) {
-  const configPath = Deno.args[0];
+  const netInterface = Deno.args[0];
+  if (!netInterface) throw new Error("no interface specified");
+
+  const configPath = Deno.args[1];
   if (!configPath) throw new Error("no config specified");
 
   const eltrafico = new ElTrafico();
-  await limit({ configPath, eltrafico });
+  await limit({ netInterface, configPath, eltrafico });
 
   const watcher = Deno.watchFs(configPath);
   let lastFutureJob = undefined;
@@ -37,48 +28,38 @@ if (import.meta.main) {
     // only trigger reload after there are no events for 1 seconds
     clearInterval(lastFutureJob);
     lastFutureJob = setTimeout(
-      async () => await limit({ configPath, eltrafico }),
+      async () => await limit({ netInterface, configPath, eltrafico }),
       1000,
     );
   }
 }
 
 async function limit(
-  { configPath, eltrafico }: { configPath: string; eltrafico: ElTrafico },
+  { netInterface, configPath, eltrafico }: {
+    netInterface: string;
+    configPath: string;
+    eltrafico: ElTrafico;
+  },
 ) {
-  const config = toml.parse(
+  const config = yaml.parse(
     Deno.readTextFileSync(configPath),
   ) as unknown as Config;
-  //TODO: validate with zod
 
-  await eltrafico.interface(config.global.interface);
-  await eltrafico.limit({
-    global: true,
-    downloadLimit: parseValue(config.global.download),
-    uploadLimit: parseValue(config.global.upload),
-    downloadMinimum: parseValue(config.global.download_minimum),
-    uploadMinimum: parseValue(config.global.upload_minimum),
+  await eltrafico.interface(netInterface);
+  await eltrafico.limitGlobal({
+    download: config.download,
+    upload: config.upload,
+    "download-minimum": config["download-minimum"],
+    "upload-minimum": config["upload-minimum"],
   });
-  for (const process of config.process) {
+
+  for (const [_name, process] of Object.entries(config.processes)) {
     await eltrafico.limit({
-      name: process.match_exe,
-      downloadLimit: parseValue(process.download),
-      uploadLimit: parseValue(process.upload),
-      downloadMinimum: parseValue(process.download_minimum),
-      uploadMinimum: parseValue(process.upload_minimum),
+      match: process.match,
+      download: process.download,
+      upload: process.upload,
+      "download-minimum": process["download-minimum"],
+      "upload-minimum": process["upload-minimum"],
     });
   }
-}
-
-export function parseValue(value: string) {
-  const pattern = /(\d+)([A-Za-z]+)/;
-  const result = value.match(pattern);
-
-  if (result) {
-    const value = parseInt(result[1]);
-    const unit = result[2].toLowerCase() as Unit; //TODO validate
-    return { value, unit };
-  }
-
-  throw new Error("Invalid value");
 }

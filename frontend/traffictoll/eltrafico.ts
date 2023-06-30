@@ -1,12 +1,12 @@
-export type Unit = "bps" | "kbps" | "mbps";
-export type Value = { value: number; unit: Unit };
-export interface Program {
-  name?: string;
-  global?: boolean;
-  downloadLimit?: Value;
-  uploadLimit?: Value;
-  downloadMinimum?: Value;
-  uploadMinimum?: Value;
+export interface Process {
+  match: { name: string }[];
+  download?: string;
+  upload?: string;
+  "download-minimum"?: string;
+  "upload-minimum"?: string;
+  //TODO: use these
+  "download-priority"?: string;
+  "upload-priority"?: string;
 }
 
 function findEltraficoTc() {
@@ -27,11 +27,20 @@ export class ElTrafico {
     this.#reader = this.#tc.stdout.getReader();
     this.#writer = this.#tc.stdin.getWriter();
   }
-  async limit(program: Program) {
-    const startMsg = program.global ? "Global: " : `Program: ${program.name}`;
-    const limitAction = `${startMsg} ${getLimit(program.downloadLimit)} ${
-      getLimit(program.uploadLimit)
-    } ${getLimit(program.downloadMinimum)} ${getLimit(program.uploadMinimum)}`;
+  async limitGlobal(global: Omit<Process, "match">) {
+    const startMsg = "Global: ";
+    const limitAction = `${startMsg} ${utn(global.download)} ${
+      utn(global.upload)
+    } ${utn(global["download-minimum"])} ${utn(global["upload-minimum"])}`;
+    await this.#write(limitAction);
+  }
+  async limit(process: Process) {
+    console.log(process);
+    //TODO: use all match names
+    const startMsg = `Program: ${utn(process.match[0].name)}`;
+    const limitAction = `${startMsg} ${utn(process.download)} ${
+      utn(process.upload)
+    } ${utn(process["download-minimum"])} ${utn(process["upload-minimum"])}`;
 
     await this.#write(limitAction);
   }
@@ -67,10 +76,10 @@ export class ElTrafico {
   }
 }
 
-function getLimit(limitAndUnit?: { value: number; unit: Unit }) {
-  if (limitAndUnit) {
-    return limitAndUnit.value.toString() + limitAndUnit.unit;
-  } else {
-    return "None";
-  }
+/** Undefined to None */
+function utn(
+  maybeValue: string | undefined,
+) {
+  if (maybeValue === undefined) return "None";
+  return maybeValue;
 }

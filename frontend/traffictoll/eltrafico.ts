@@ -35,7 +35,6 @@ export class ElTrafico {
     await this.#write(limitAction);
   }
   async limit(process: Process) {
-    console.log(process);
     //TODO: use all match names
     const startMsg = `Program: ${utn(process.match[0].name)}`;
     const limitAction = `${startMsg} ${utn(process.download)} ${

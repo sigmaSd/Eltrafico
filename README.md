@@ -14,6 +14,7 @@ With network usage:
 The default frontend is GTK, other frontends can be written:
 
 - [bandito](https://github.com/sigmaSd/bandito) <img width="70%" height="70%" src="https://user-images.githubusercontent.com/22427111/187526633-de317357-ce9f-4314-b721-27fa62e0e9ce.png"/>
+- Trafficotoll: TODO
 
 # Usage
 `eltrafico`

@@ -49,6 +49,10 @@ This allows to run the gui as a normal user, and ask for higher privilege only f
 - pkexec pkill nethogs
 - pkexec pkill bandwhich
 
+## Hacking tips
+
+When developping make sure to use env `RUST_LOG=debug`
+
 ## Current State
 Works on my pc (TM)
 

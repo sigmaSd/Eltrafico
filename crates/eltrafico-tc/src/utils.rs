@@ -25,8 +25,8 @@ pub fn run(v: String) -> Result<Output> {
         .args(cmd.collect::<Vec<&str>>())
         .output()?;
     if !output.stderr.is_empty() {
-        log::error!(
-            "Error while running cmd: {:?}\nerr: {}",
+        log::warn!(
+            "cmd: {:?} stderr: {}",
             v,
             String::from_utf8_lossy(&output.stderr)
         );

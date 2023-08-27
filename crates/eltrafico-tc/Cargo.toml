@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ctrlc = "3.2.3"
-log = "0.4.17"
+ctrlc = "3.4.0"
+log = "0.4.20"
 
 [dependencies.simple_logger]
-version = "2.3.0"
+version = "4.2.0"
 features = ["stderr"]

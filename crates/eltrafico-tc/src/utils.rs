@@ -70,7 +70,7 @@ enum Status {
 }
 
 pub fn ss() -> Result<HashMap<String, Vec<Connection>>> {
-    let raw_net_table = run_out!("ss -n -t -p  state established")??;
+    let raw_net_table = run_out!("ss -n -t -u -p  state established")??;
 
     let mut net_table = HashMap::new();
     for row in raw_net_table.lines().skip(1) {
@@ -83,7 +83,7 @@ fn ss_parse(row: &str, net_table: &mut HashMap<String, Vec<Connection>>) -> Opti
     let is_ipv6 =
         |addr: &str| matches!(&addr[0..1], "[") && matches!(&addr[addr.len() - 1..addr.len()], "]");
     let mut row = row.split_whitespace();
-    let laddr_lport = row.nth(2)?;
+    let laddr_lport = row.nth(3)?;
     let raddr_rport = row.next()?;
     let process = row.next()?;
 
@@ -125,7 +125,7 @@ pub struct Connection {
 
 #[test]
 fn test_ss_parse() {
-    let row = r#"0              0                        192.168.1.1:5123                     200.2000.200.1111:443            users:(("firefox",pid=1996,fd=128))"#;
+    let row = r#"tcp              0              0                        192.168.1.1:5123                     200.2000.200.1111:443            users:(("firefox",pid=1996,fd=128))"#;
     {
         let mut process = HashMap::new();
         ss_parse(row, &mut process);
@@ -144,8 +144,8 @@ fn test_ss_parse() {
             .collect()
         )
     }
-    let two_rows_ipv6 = r#"0      0                        [::1]:9100                                 [::2]:33586               users:(("node_exporter",pid=111305,fd=5))
-0      0                        [::1]:33586                                [::1]:9100                users:(("sshd",pid=261247,fd=10))
+    let two_rows_ipv6 = r#"udp              0      0                        [::1]:9100                                 [::2]:33586               users:(("node_exporter",pid=111305,fd=5))
+tcp              0      0                        [::1]:33586                                [::1]:9100                users:(("sshd",pid=261247,fd=10))
 "#;
     {
         let mut process = HashMap::new();

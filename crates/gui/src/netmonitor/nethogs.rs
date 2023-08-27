@@ -8,6 +8,7 @@ use std::process::{Command, Stdio};
 pub fn nethogs(tx: Sender<UpdateGuiMessage>) -> CatchAll<()> {
     let mut cmd = Command::new("pkexec")
         .arg("nethogs")
+        .arg("-C")
         .arg("-t")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

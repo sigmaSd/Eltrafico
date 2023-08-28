@@ -66,6 +66,10 @@ Works on my pc (TM)
 ## Binary Releases
 - Automatic releases by github actions are uploaded here https://github.com/sigmaSd/eltrafico/releases
 
+## Community Packages
+
+- *Arch aur (by @fanzhuyifan)*: [eltrafico-git](https://aur.archlinux.org/packages/eltrafico-git)
+
 ## Installation
  - needs gtk-dev: https://gtk-rs.org/docs/requirements.html
  - cargo install eltrafico

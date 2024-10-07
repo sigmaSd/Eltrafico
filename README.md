@@ -11,10 +11,12 @@ With network usage:
 
 <img src="./gui_with_network_usage.png" width="70%" height="70%">
 
-The default frontend is GTK, other frontends can be written:
+The repo have the gtk frontend among others, other frontends can be written:
 
 - [bandito](https://github.com/sigmaSd/bandito) <img width="70%" height="70%" src="https://user-images.githubusercontent.com/22427111/187526633-de317357-ce9f-4314-b721-27fa62e0e9ce.png"/>
 - Traffictoll: https://github.com/sigmaSd/Eltrafico/tree/master/frontend/traffictoll
+
+The easiest one to test is bandito, since it provides appimages in the github ci
 
 # Usage
 `eltrafico`

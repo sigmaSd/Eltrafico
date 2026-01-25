@@ -15,6 +15,7 @@ The repo have the gtk frontend among others, other frontends can be written:
 
 - [bandito](https://github.com/sigmaSd/bandito) <img width="70%" height="70%" src="https://user-images.githubusercontent.com/22427111/187526633-de317357-ce9f-4314-b721-27fa62e0e9ce.png"/>
 - Traffictoll: https://github.com/sigmaSd/Eltrafico/tree/master/frontend/traffictoll
+- GTK4 (newest): https://github.com/sigmaSd/bandito-gtk
 
 The easiest one to test is bandito, since it provides appimages (that bundles all runtime dependencies) in the github ci
 

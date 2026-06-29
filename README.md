@@ -1,7 +1,7 @@
 # Eltrafico
 NetLimiter-like traffic shaping for Linux
 
-# News 
+## News 
 
 The current maintaiend forntend is https://github.com/sigmaSd/bandito-gtk (gtk4)
 

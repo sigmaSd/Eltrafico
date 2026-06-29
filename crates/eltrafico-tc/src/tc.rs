@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use crate::ipc::LimitConfig;
 use crate::utils::ifconfig;
 use crate::{run, run_out, Result};
 
@@ -17,6 +18,7 @@ pub struct QDisc {
     pub device: String,
     pub id: usize,
     pub root_class_id: usize,
+    pub default_class_id: usize,
 }
 
 //FIXME
@@ -155,18 +157,23 @@ pub fn tc_setup(
         "tc class add dev {ifb_device} parent {ifb_device_qdisc_id}: classid {ifb_device_qdisc_id}:{ifb_device_root_class_id} htb rate {download_rate} quantum 1500"
     )?;
 
-    let ingress_qdisc = QDisc {
-        device: ifb_device.clone(),
-        id: ifb_device_qdisc_id,
-        root_class_id: ifb_device_root_class_id,
-    };
-    // Create default class that all traffic is routed through that doesn't match any other filter
     let ifb_default_class_id = tc_add_htb_class(
-        &ingress_qdisc,
+        &QDisc {
+            device: ifb_device.clone(),
+            id: ifb_device_qdisc_id,
+            root_class_id: ifb_device_root_class_id,
+            default_class_id: 0,
+        },
         Some(download_rate),
         Some(download_minimum_rate),
         Some(default_download_priority),
     )?;
+    let ingress_qdisc = QDisc {
+        device: ifb_device.clone(),
+        id: ifb_device_qdisc_id,
+        root_class_id: ifb_device_root_class_id,
+        default_class_id: ifb_default_class_id,
+    };
     run!(
         "tc filter add dev {ifb_device} parent {ifb_device_qdisc_id}: prio 2 protocol ip u32 match u32 0 0 flowid {ifb_device_qdisc_id}:{ifb_default_class_id}"
     )?;
@@ -180,19 +187,23 @@ pub fn tc_setup(
         "tc class add dev {device} parent {device_qdisc_id}: classid {device_qdisc_id}:{device_root_class_id} htb rate {upload_rate} quantum 1500"
     )?;
 
-    let egress_qdisc = QDisc {
-        device: device.to_string(),
-        id: device_qdisc_id,
-        root_class_id: device_root_class_id,
-    };
-
-    // Create default class that all traffic is routed through that doesn't match any other filter
     let device_default_class_id = tc_add_htb_class(
-        &egress_qdisc,
+        &QDisc {
+            device: device.to_string(),
+            id: device_qdisc_id,
+            root_class_id: device_root_class_id,
+            default_class_id: 0,
+        },
         Some(upload_rate),
         Some(upload_minimum_rate),
         Some(default_upload_priority),
     )?;
+    let egress_qdisc = QDisc {
+        device: device.to_string(),
+        id: device_qdisc_id,
+        root_class_id: device_root_class_id,
+        default_class_id: device_default_class_id,
+    };
     run!(
         "tc filter add dev {device} parent {device_qdisc_id}: prio 2 protocol ip u32 match u32 0 0 flowid {device_qdisc_id}:{device_default_class_id}"
     )?;
@@ -222,6 +233,39 @@ pub fn tc_add_htb_class(
     )?;
 
     Ok(class_id)
+}
+
+pub fn build_global_rate_commands(
+    ingress: &QDisc,
+    egress: &QDisc,
+    config: &LimitConfig,
+) -> Vec<String> {
+    let dl_rate = config
+        .download_rate
+        .clone()
+        .unwrap_or_else(|| MAX_RATE.into());
+    let ul_rate = config
+        .upload_rate
+        .clone()
+        .unwrap_or_else(|| MAX_RATE.into());
+    vec![
+        format!(
+            "tc class change dev {} classid {}:{} htb rate {dl_rate}",
+            ingress.device, ingress.id, ingress.root_class_id
+        ),
+        format!(
+            "tc class change dev {} classid {}:{} htb rate 8 ceil {dl_rate}",
+            ingress.device, ingress.id, ingress.default_class_id
+        ),
+        format!(
+            "tc class change dev {} classid {}:{} htb rate {ul_rate}",
+            egress.device, egress.id, egress.root_class_id
+        ),
+        format!(
+            "tc class change dev {} classid {}:{} htb rate 8 ceil {ul_rate}",
+            egress.device, egress.id, egress.default_class_id
+        ),
+    ]
 }
 
 fn get_filter_ids(device: &str) -> Result<HashSet<String>> {
@@ -278,4 +322,143 @@ pub fn tc_remove_qdisc(device: String, parent: Option<String>) -> Result<()> {
         parent.unwrap_or_else(|| "root".into())
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ipc::LimitConfig;
+
+    use super::*;
+
+    #[test]
+    fn build_global_rate_commands_both_set() {
+        let ingress = QDisc {
+            device: "ifb0".into(),
+            id: 1,
+            root_class_id: 1,
+            default_class_id: 2,
+        };
+        let egress = QDisc {
+            device: "eth0".into(),
+            id: 2,
+            root_class_id: 1,
+            default_class_id: 2,
+        };
+        let config = LimitConfig {
+            download_rate: Some("500kbps".into()),
+            upload_rate: Some("200kbps".into()),
+            ..Default::default()
+        };
+
+        let cmds = build_global_rate_commands(&ingress, &egress, &config);
+
+        assert_eq!(cmds.len(), 4);
+        assert_eq!(
+            cmds[0],
+            "tc class change dev ifb0 classid 1:1 htb rate 500kbps"
+        );
+        assert_eq!(
+            cmds[1],
+            "tc class change dev ifb0 classid 1:2 htb rate 8 ceil 500kbps"
+        );
+        assert_eq!(
+            cmds[2],
+            "tc class change dev eth0 classid 2:1 htb rate 200kbps"
+        );
+        assert_eq!(
+            cmds[3],
+            "tc class change dev eth0 classid 2:2 htb rate 8 ceil 200kbps"
+        );
+    }
+
+    #[test]
+    fn build_global_rate_commands_upload_not_set_defaults_to_max() {
+        let ingress = QDisc {
+            device: "ifb0".into(),
+            id: 1,
+            root_class_id: 1,
+            default_class_id: 2,
+        };
+        let egress = QDisc {
+            device: "eth0".into(),
+            id: 1,
+            root_class_id: 1,
+            default_class_id: 2,
+        };
+        let config = LimitConfig {
+            download_rate: Some("100kbps".into()),
+            upload_rate: None,
+            ..Default::default()
+        };
+
+        let cmds = build_global_rate_commands(&ingress, &egress, &config);
+
+        assert_eq!(
+            cmds[2],
+            "tc class change dev eth0 classid 1:1 htb rate 4294967295"
+        );
+        assert_eq!(
+            cmds[3],
+            "tc class change dev eth0 classid 1:2 htb rate 8 ceil 4294967295"
+        );
+    }
+
+    #[test]
+    fn build_global_rate_commands_download_not_set_defaults_to_max() {
+        let ingress = QDisc {
+            device: "ifb0".into(),
+            id: 1,
+            root_class_id: 1,
+            default_class_id: 2,
+        };
+        let egress = QDisc {
+            device: "eth0".into(),
+            id: 1,
+            root_class_id: 1,
+            default_class_id: 2,
+        };
+        let config = LimitConfig {
+            download_rate: None,
+            upload_rate: Some("300kbps".into()),
+            ..Default::default()
+        };
+
+        let cmds = build_global_rate_commands(&ingress, &egress, &config);
+
+        assert_eq!(
+            cmds[0],
+            "tc class change dev ifb0 classid 1:1 htb rate 4294967295"
+        );
+        assert_eq!(
+            cmds[1],
+            "tc class change dev ifb0 classid 1:2 htb rate 8 ceil 4294967295"
+        );
+        assert_eq!(
+            cmds[2],
+            "tc class change dev eth0 classid 1:1 htb rate 300kbps"
+        );
+    }
+
+    #[test]
+    fn build_global_rate_commands_neither_set_defaults_both_to_max() {
+        let ingress = QDisc {
+            device: "ifb0".into(),
+            id: 1,
+            root_class_id: 2,
+            default_class_id: 3,
+        };
+        let egress = QDisc {
+            device: "eth0".into(),
+            id: 1,
+            root_class_id: 2,
+            default_class_id: 3,
+        };
+        let config = LimitConfig::default();
+
+        let cmds = build_global_rate_commands(&ingress, &egress, &config);
+
+        for cmd in &cmds {
+            assert!(cmd.contains("4294967295"), "expected MAX_RATE in: {cmd}");
+        }
+    }
 }

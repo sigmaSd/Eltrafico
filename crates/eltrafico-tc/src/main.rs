@@ -2,8 +2,8 @@ mod tc;
 mod utils;
 use crate::ipc::LimitConfig;
 use crate::tc::{
-    tc_add_htb_class, tc_add_u32_filter, tc_remove_qdisc, tc_remove_u32_filter, tc_setup, QDisc,
-    INGRESS_QDISC_PARENT_ID,
+    build_global_rate_commands, tc_add_htb_class, tc_add_u32_filter, tc_remove_qdisc,
+    tc_remove_u32_filter, tc_setup, QDisc, INGRESS_QDISC_PARENT_ID,
 };
 use crate::utils::ss;
 use log::{info, trace, warn};
@@ -120,22 +120,17 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                             &mut root_egress,
                             global_limit.clone(),
                             &mut filtered_ports,
+                            &mut program_to_ports,
                         )?;
                     }
                     Message::Global { config } => {
                         info!("recieved global limit: {config:?}");
-                        clean_up(&root_ingress.device, &current_interface)?;
-
-                        // save new values
                         global_limit = config;
-
-                        resetup_tc_and_filtered_ports(
-                            &current_interface,
-                            &mut root_ingress,
-                            &mut root_egress,
-                            global_limit.clone(),
-                            &mut filtered_ports,
-                        )?;
+                        for cmd in
+                            build_global_rate_commands(&root_ingress, &root_egress, &global_limit)
+                        {
+                            run!("{cmd}")?;
+                        }
                     }
                     Message::Program { name, config } => {
                         info!("recieved program: {name} {config:?}");
@@ -297,8 +292,10 @@ fn resetup_tc_and_filtered_ports(
     egress: &mut QDisc,
     global_limit: LimitConfig,
     filtered_ports: &mut HashMap<DirPort, String>,
+    program_to_ports: &mut HashMap<String, Vec<DirPort>>,
 ) -> Result<()> {
     filtered_ports.clear();
+    program_to_ports.clear();
 
     (*ingress, *egress) = tc_setup(
         current_interface.to_string(),

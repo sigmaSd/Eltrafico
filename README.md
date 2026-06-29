@@ -1,6 +1,13 @@
 # Eltrafico
 NetLimiter-like traffic shaping for Linux
 
+# News 
+
+The current maintaiend forntend is https://github.com/sigmaSd/bandito-gtk (gtk4)
+
+<img width="1000" height="750" alt="image" src="https://github.com/user-attachments/assets/f88871d9-16bd-4e70-b114-df303b811f63" />
+
+
 This is a port of https://github.com/cryzed/TrafficToll to rust.
 
 And a gui on top

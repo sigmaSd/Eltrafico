@@ -152,7 +152,7 @@ pub fn tc_setup(
     run!("tc qdisc add dev {ifb_device} root handle {ifb_device_qdisc_id}: htb",)?;
     let ifb_device_root_class_id = get_free_class_id(&ifb_device, ifb_device_qdisc_id)?;
     run!(
-        "tc class add dev {ifb_device} parent {ifb_device_qdisc_id}: classid {ifb_device_qdisc_id}:{ifb_device_root_class_id} htb rate {download_rate}"
+        "tc class add dev {ifb_device} parent {ifb_device_qdisc_id}: classid {ifb_device_qdisc_id}:{ifb_device_root_class_id} htb rate {download_rate} quantum 1500"
     )?;
 
     let ingress_qdisc = QDisc {
@@ -177,7 +177,7 @@ pub fn tc_setup(
     let device_root_class_id = get_free_class_id(&device, device_qdisc_id)?;
 
     run!(
-        "tc class add dev {device} parent {device_qdisc_id}: classid {device_qdisc_id}:{device_root_class_id} htb rate {upload_rate}"
+        "tc class add dev {device} parent {device_qdisc_id}: classid {device_qdisc_id}:{device_root_class_id} htb rate {upload_rate} quantum 1500"
     )?;
 
     let egress_qdisc = QDisc {
@@ -214,7 +214,7 @@ pub fn tc_add_htb_class(
     // only be allowed to borrow from the parent class, otherwise it's possible to
     // specify a rate higher than the global rate
     run!(
-        "tc class add dev {} parent {}:{} classid {}:{class_id} htb rate {rate} ceil {ceil} prio {priority}"
+        "tc class add dev {} parent {}:{} classid {}:{class_id} htb rate {rate} ceil {ceil} prio {priority} quantum 1500"
         ,qdisc.device
         ,qdisc.id
         ,qdisc.root_class_id

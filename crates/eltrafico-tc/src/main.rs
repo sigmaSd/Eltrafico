@@ -87,7 +87,9 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
         loop {
             match stdin.read_line(&mut input) {
                 Ok(_) => {
-                    tx_stdin.send(input.clone()).unwrap();
+                    if tx_stdin.send(input.clone()).is_err() {
+                        break;
+                    }
                 }
                 Err(e) => log::warn!("{e}"),
             }

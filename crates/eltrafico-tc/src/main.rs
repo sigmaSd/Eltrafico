@@ -99,6 +99,7 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
 
     let mut program_to_trafficid_map = HashMap::new();
     let mut filtered_ports: HashMap<DirPort, String> = HashMap::new();
+    let mut program_to_ports: HashMap<String, Vec<DirPort>> = HashMap::new();
 
     loop {
         // check for new user limits
@@ -146,6 +147,21 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                             download_priority,
                             upload_priority,
                         } = config;
+
+                        for (port, filter_id) in remove_old_program_filters(
+                            &mut program_to_ports,
+                            &name,
+                            &mut filtered_ports,
+                        ) {
+                            match port {
+                                DirPort::Ingress(_) => {
+                                    tc_remove_u32_filter(&root_ingress, filter_id)?
+                                }
+                                DirPort::Egress(_) => {
+                                    tc_remove_u32_filter(&root_egress, filter_id)?
+                                }
+                            }
+                        }
 
                         let ingress_class_id = if let Some(download_rate) = download_rate {
                             Some(tc_add_htb_class(
@@ -216,6 +232,7 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                         );
                         let ingress_filter_id =
                             add_ingress_filter(connection.lport, &root_ingress, ingress_class_id)?;
+                        record_program_port(&mut program_to_ports, &program, ingress_port);
                         active_ports.insert(ingress_port, ingress_filter_id);
                     }
                 }
@@ -232,6 +249,7 @@ pub fn limit(delay: Option<Duration>, mut stdout: io::Stdout, stdin: io::Stdin) 
                         );
                         let egress_filter_id =
                             add_egress_filter(connection.lport, &root_egress, egress_class_id)?;
+                        record_program_port(&mut program_to_ports, &program, egress_port);
                         active_ports.insert(egress_port, egress_filter_id);
                     }
                 }
@@ -319,6 +337,97 @@ fn add_egress_filter(port: usize, egress_qdisc: &QDisc, class_id: usize) -> Resu
         class_id,
     )?;
     Ok(filter_id)
+}
+
+fn remove_old_program_filters(
+    program_to_ports: &mut HashMap<String, Vec<DirPort>>,
+    name: &str,
+    filtered_ports: &mut HashMap<DirPort, String>,
+) -> Vec<(DirPort, String)> {
+    program_to_ports
+        .remove(name)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|port| filtered_ports.remove(&port).map(|fid| (port, fid)))
+        .collect()
+}
+
+fn record_program_port(
+    program_to_ports: &mut HashMap<String, Vec<DirPort>>,
+    name: &str,
+    port: DirPort,
+) {
+    program_to_ports
+        .entry(name.to_string())
+        .or_default()
+        .push(port);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remove_old_program_filters_removes_ports_and_returns_filter_ids() {
+        let mut program_to_ports = HashMap::new();
+        program_to_ports.insert("test".into(), vec![DirPort::Ingress(1234)]);
+        let mut filtered_ports = HashMap::new();
+        filtered_ports.insert(DirPort::Ingress(1234), "filter:1".into());
+
+        let removed =
+            remove_old_program_filters(&mut program_to_ports, "test", &mut filtered_ports);
+
+        assert_eq!(removed, vec![(DirPort::Ingress(1234), "filter:1".into())]);
+        assert!(!filtered_ports.contains_key(&DirPort::Ingress(1234)));
+        assert!(!program_to_ports.contains_key("test"));
+    }
+
+    #[test]
+    fn remove_old_program_filters_unknown_program_does_nothing() {
+        let mut program_to_ports = HashMap::new();
+        let mut filtered_ports = HashMap::new();
+        filtered_ports.insert(DirPort::Egress(99), "f:1".into());
+
+        let removed =
+            remove_old_program_filters(&mut program_to_ports, "nonexistent", &mut filtered_ports);
+
+        assert!(removed.is_empty());
+        assert!(filtered_ports.contains_key(&DirPort::Egress(99)));
+    }
+
+    #[test]
+    fn record_program_port_adds_to_list() {
+        let mut program_to_ports = HashMap::new();
+        record_program_port(&mut program_to_ports, "firefox", DirPort::Ingress(80));
+        record_program_port(&mut program_to_ports, "firefox", DirPort::Egress(443));
+
+        assert_eq!(
+            program_to_ports.get("firefox").unwrap(),
+            &vec![DirPort::Ingress(80), DirPort::Egress(443)],
+        );
+    }
+
+    #[test]
+    fn program_update_clears_old_ports_and_accepts_new() {
+        let mut program_to_ports = HashMap::new();
+        program_to_ports.insert("test".into(), vec![DirPort::Ingress(1234)]);
+        let mut filtered_ports = HashMap::new();
+        filtered_ports.insert(DirPort::Ingress(1234), "old:1".into());
+
+        // Simulate program update: clean old
+        let removed =
+            remove_old_program_filters(&mut program_to_ports, "test", &mut filtered_ports);
+        assert_eq!(removed, vec![(DirPort::Ingress(1234), "old:1".into())]);
+        assert!(!filtered_ports.contains_key(&DirPort::Ingress(1234)));
+
+        // Simulate new ss scan discovering new port
+        record_program_port(&mut program_to_ports, "test", DirPort::Ingress(5678));
+
+        assert_eq!(
+            program_to_ports.get("test").unwrap(),
+            &vec![DirPort::Ingress(5678)],
+        );
+    }
 }
 
 fn handle_ctrlc(root_ingress: QDisc, current_interface: String) {

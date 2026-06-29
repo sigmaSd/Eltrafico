@@ -102,9 +102,7 @@ fn ss_parse(row: &str, net_table: &mut HashMap<String, Vec<Connection>>) -> Opti
     }
 
     let process = process.split('\"').nth(1)?.split('\"').next()?;
-    let net_entry: &mut Vec<Connection> = net_table
-        .entry(process.to_string())
-        .or_insert_with(Vec::new);
+    let net_entry: &mut Vec<Connection> = net_table.entry(process.to_string()).or_default();
     net_entry.push(Connection {
         laddr,
         lport: lport.parse().ok()?,

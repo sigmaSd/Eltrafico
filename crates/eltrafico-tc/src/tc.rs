@@ -254,7 +254,7 @@ pub fn tc_add_u32_filter(qdisc: &QDisc, predicate: String, class_id: usize) -> R
 
     let difference: Vec<_> = after.difference(&before).collect();
 
-    if let Some(diff) = difference.get(0) {
+    if let Some(diff) = difference.first() {
         if difference.len() > 1 {
             log::warn!("Parsed ambiguous filter handle: {:?}", difference);
         }
